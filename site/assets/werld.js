@@ -12,6 +12,10 @@
   const S = (code) => `s/${code}/`;
   const devel = (s) => Date.now() - new Date(s.last) < 3 * 3600e3 && Date.now() - new Date(s.first) < 24 * 3600e3 && s.sources.length > 1;
   const chipHtml = (s) => `<span class="chips"><span class="chip ${s.status === "multi" ? "ok" : "warn"}">${s.status === "multi" ? "MULTI-SOURCE" : "SINGLE"}</span>${s.vetted === false ? `<span class="chip unv" title="WERLD/ hasn't reviewed this outlet yet">UNVERIFIED OUTLET</span>` : ""}${devel(s) ? `<span class="chip live">DEVELOPING</span>` : ""}</span>`;
+const LANGS = { ar: "Arabic", ru: "Russian", uk: "Ukrainian", zh: "Chinese", ja: "Japanese", ko: "Korean", es: "Spanish", fr: "French", de: "German", it: "Italian", pt: "Portuguese", nl: "Dutch", pl: "Polish", tr: "Turkish", id: "Indonesian", vi: "Vietnamese", th: "Thai", hi: "Hindi", fa: "Persian", he: "Hebrew", hy: "Armenian", ka: "Georgian", az: "Azerbaijani", sr: "Serbian", hr: "Croatian", bg: "Bulgarian", ro: "Romanian", hu: "Hungarian", cs: "Czech", sk: "Slovak", el: "Greek", sv: "Swedish", da: "Danish", nb: "Norwegian", fi: "Finnish", ur: "Urdu", bn: "Bengali", sw: "Swahili", am: "Amharic", so: "Somali", ha: "Hausa" };
+  const ENGINES = { apple: "Apple on-device translation", qwen: "local AI model (qwen)" };
+  const trNote = (o) => `<span class="trl">TRANSLATED FROM ${esc((LANGS[o.lang] || o.lang || "").toUpperCase())}</span>`;
+  const origLine = (o) => o.orig ? `<p class="orig" lang="${esc(o.lang || "")}" dir="auto">${trNote(o)}<span>${esc(o.orig)}</span></p>` : "";
   const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "#");
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -211,7 +215,7 @@
 
   // ---------- ticker ----------
   function renderTicker() {
-    const items = feed.brief.map((i) => byId.get(i)).concat(feed.stories.filter((s) => s.status === "multi" && s.vetted !== false && !(s.sensitive || []).length).slice(0, 14))
+    const items = feed.brief.map((i) => byId.get(i)).concat(feed.stories.filter((s) => s.status === "multi" && s.promo !== false && !(s.sensitive || []).length).slice(0, 14))
       .filter((s, i, a) => s && a.indexOf(s) === i).slice(0, 20);
     const html = items.map((s) => { const h = headHref(s); return `<a href="${esc(h.href)}"${h.out ? tgt() : ""}><b style="color:${cvar(s.desk)}">${esc(deskOf(s.desk).code)}</b>${esc(s.title)}${h.out ? " ↗" : ""}</a>`; }).join("");
     const t = $("#track"); t.innerHTML = html + `<span aria-hidden="true" style="display:contents">${html.replace(/<a /g, '<a tabindex="-1" ')}</span>`;
@@ -245,6 +249,7 @@
       <div class="t">${when(s.last)}</div>
       <span class="dk" style="--c:${cvar(s.desk)}">${esc(d.code)}</span>
       <h4 dir="auto">${headLink(s)}${chipHtml(s)}</h4>
+      ${origLine(s)}
       ${s.summary && !opts.compact ? `<p class="sum">${esc(s.summary)}</p>` : ""}
       <div class="meta">
         <span class="src">${names}</span>
@@ -253,7 +258,7 @@
         ${pl ? `<span class="pl">${pl}</span>` : ""}
         ${s.first !== s.last && n > 1 ? `<span>first seen ${when(s.first)}</span>` : ""}
       </div>
-      ${n > 1 ? `<div class="srcs">${s.sources.map((x) => `<a class="srcbtn" href="${esc(safeUrl(x.url))}"${tgt()}><b>${esc(x.name)}</b><span>${when(x.ts)}</span><em dir="auto">${esc(x.title)}</em><i aria-hidden="true">↗</i></a>`).join("")}</div>` : ""}
+      ${n > 1 ? `<div class="srcs">${s.sources.map((x) => `<a class="srcbtn" href="${esc(safeUrl(x.url))}"${tgt()}><b>${esc(x.name)}</b><span>${when(x.ts)}</span><em dir="auto">${esc(x.title)}${x.orig ? `<small class="o" lang="${esc(x.lang || "")}">${trNote(x)} ${esc(x.orig)}</small>` : ""}</em><i aria-hidden="true">↗</i></a>`).join("")}</div>` : ""}
     </article>`;
   }
   document.addEventListener("click", (e) => {
