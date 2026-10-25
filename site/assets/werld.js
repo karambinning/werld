@@ -226,8 +226,8 @@ const LANGS = { ar: "Arabic", ru: "Russian", uk: "Ukrainian", zh: "Chinese", ja:
   function renderFacets() {
     const pool = feed.stories;
     const dk = feed.desks.filter((d) => d.count > 0);
-    $("#f-desk").innerHTML = [`<button type="button" data-d="" aria-pressed="${!filt.desk}" style="--c:var(--text)"><i></i>All desks<em>${pool.length}</em></button>`]
-      .concat(dk.map((d) => `<button type="button" data-d="${d.id}" aria-pressed="${filt.desk === d.id}" style="--c:${cvar(d.id)}"><i></i>${esc(d.name)}<em>${d.count}</em></button>`)).join("");
+    $("#f-desk").innerHTML = [`<button type="button" data-d="" aria-pressed="${!filt.desk}" style="--c:var(--text)"><i></i>All desks<em>${(feed.total_stories || pool.length).toLocaleString()}</em></button>`]
+      .concat(dk.map((d) => `<button type="button" data-d="${esc(d.id)}" aria-pressed="${filt.desk === d.id}" style="--c:${cvar(d.id)}"><i></i>${esc(d.name)}<em>${d.count}</em></button>`)).join("");
     const rc = Object.fromEntries(REGIONS.map((r) => [r, pool.filter((s) => s.region === r).length]));
     $("#f-region").innerHTML = [`<button type="button" data-r="" aria-pressed="${!filt.region}"><i style="background:var(--text)"></i>Everywhere</button>`]
       .concat(REGIONS.filter((r) => rc[r]).map((r) => `<button type="button" data-r="${r}" aria-pressed="${filt.region === r}"><i style="background:var(--rule2)"></i>${r}<em>${rc[r]}</em></button>`)).join("");
@@ -268,8 +268,35 @@ const LANGS = { ar: "Arabic", ru: "Russian", uk: "Ukrainian", zh: "Chinese", ja:
   });
 
   // ---------- LIVE ----------
+  // The front page carries ~900 stories; a desk's full list and the all-story search index load on demand.
+  const deskPool = {}, deskLoading = {};
+  let searchRows = null, searchLoading = false;
+  async function loadDesk(id) {
+    if (deskPool[id] || deskLoading[id]) return;
+    deskLoading[id] = true;
+    try { deskPool[id] = (await (await fetch(`data/desk/${id}.json`, { cache: "no-cache" })).json()).stories; } catch { deskPool[id] = null; }
+    deskLoading[id] = false; renderStream();
+  }
+  async function loadSearch() {
+    if (searchRows || searchLoading) return;
+    searchLoading = true;
+    try { searchRows = (await (await fetch("data/search.json", { cache: "no-cache" })).json()).rows; } catch { searchRows = []; }
+    searchLoading = false; renderStream();
+  }
+  function basePool() {
+    if (filt.desk) { if (!deskPool[filt.desk]) loadDesk(filt.desk); return deskPool[filt.desk] || feed.stories; }
+    return feed.stories;
+  }
+  // A search hit that isn't loaded yet: a plain row whose box opens the story page.
+  function liteRow(r) {
+    const [id, title, desk, last, lead, places] = r, d = deskOf(desk);
+    return `<article class="story card lite" data-id="${esc(id)}"><div class="t">${when(last)}</div>
+      <span class="dk" style="--c:${cvar(desk)}">${esc(d.code)}</span>
+      <h4 dir="auto"><a class="cardlink" href="${S(id)}">${esc(title)}</a></h4>
+      <div class="meta"><span class="src">via <b>${esc(lead)}</b></span>${places ? `<span class="pl">${esc(places)}</span>` : ""}<a class="boxlink" href="${S(id)}"><span class="sr">Story page</span></a></div></article>`;
+  }
   function filtered() {
-    return feed.stories.filter((s) =>
+    return basePool().filter((s) =>
       (!filt.desk || s.desk === filt.desk) &&
       (!filt.region || s.region === filt.region) &&
       (!filt.multi || s.status === "multi") &&
@@ -279,11 +306,20 @@ const LANGS = { ar: "Arabic", ru: "Russian", uk: "Ukrainian", zh: "Chinese", ja:
     const list = filtered();
     const multi = feed.stories.filter((s) => s.status === "multi").length;
     const outlets = new Set(feed.stories.flatMap((s) => s.sources.map((x) => x.name))).size;
-    $("#lede-live").innerHTML = `<b>${feed.stories.length}</b> stories from <b>${outlets}</b> outlets in the last ${feed.window_hours} hours, <b>${multi}</b> of them multi-source (reported by two or more independent origins). Updated ${esc(ago(feed.generated))}. Times in <b>${esc(tzShort)}</b>.`;
+    $("#lede-live").innerHTML = `<b>${(feed.total_stories || feed.stories.length).toLocaleString()}</b> stories from <b>${outlets}</b> outlets in the last ${feed.window_hours} hours, <b>${multi}</b> of them multi-source (reported by two or more independent origins). Updated ${esc(ago(feed.generated))}. Times in <b>${esc(tzShort)}</b>.`;
     if (lastVisit) {
       const n = feed.stories.filter((s) => new Date(s.first) > lastVisit).length;
       const el = $("#since"); el.hidden = false;
       el.innerHTML = `<span>Since your last visit at <b>${when(new Date(lastVisit).toISOString())}</b>: <b>${n}</b> new ${n === 1 ? "story" : "stories"}.</span>`;
+    }
+    if (filt.q) {
+      if (!searchRows) loadSearch();
+      // Search covers every story: loaded ones render in full, the rest as plain rows.
+      const have = new Set(list.map((x) => x.id));
+      const extra = (searchRows || []).filter((r) => !have.has(r[0]) && (!filt.desk || r[2] === filt.desk) &&
+        (r[1] + " " + r[4] + " " + r[5]).toLowerCase().includes(filt.q));
+      list.push(...extra.map((r) => ({ lite: r, id: r[0], last: r[3] })));
+      list.sort((a, b) => (b.last > a.last ? 1 : -1));
     }
     let html = "", lastDay = "";
     const shown = list.slice(0, filt.limit);
@@ -293,9 +329,10 @@ const LANGS = { ar: "Arabic", ru: "Russian", uk: "Ukrainian", zh: "Chinese", ja:
         const cnt = list.filter((x) => dayLabel(new Date(x.last)) === lbl).length;
         html += `<div class="day">${lbl} <em>${cnt}</em></div>`; lastDay = lbl;
       }
-      html += storyRow(s);
+      html += s.lite ? liteRow(s.lite) : storyRow(s);
     }
-    $("#stream").innerHTML = html || `<div class="empty">Nothing on the wire matches that.</div>`;
+    const loadingNote = (filt.desk && deskLoading[filt.desk]) || (filt.q && searchLoading) ? `<div class="empty">Tuning in to every story…</div>` : "";
+    $("#stream").innerHTML = loadingNote + (html || (loadingNote ? "" : `<div class="empty">Nothing on the wire matches that.</div>`));
     $("#more").hidden = list.length <= filt.limit;
   }
   function renderTop() {
