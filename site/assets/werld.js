@@ -18,6 +18,29 @@
     set(k, v) { try { localStorage.setItem(k, v); } catch {} },
   };
 
+  // ---------- settings + follows (this browser only) ----------
+  const reduceOS = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const DEF = { head: "article", newtab: "1", tube: !reduceOS, calm: reduceOS, size: "m", clock: "24", start: "live", lang: "en" };
+  let cfg;
+  try { cfg = { ...DEF, ...JSON.parse(store.get("werld.settings") || "{}") }; } catch { cfg = { ...DEF }; }
+  if (!store.get("werld.settings") && store.get("werld.tube") === "0") cfg.tube = false;
+  let follows;
+  try { follows = { threads: [], desks: [], places: [], ...JSON.parse(store.get("werld.follows") || "{}") }; } catch { follows = { threads: [], desks: [], places: [] }; }
+  const isF = (k, v) => (follows[k] || []).includes(v);
+  function toggleF(k, v) { follows[k] = isF(k, v) ? follows[k].filter((x) => x !== v) : [...(follows[k] || []), v]; store.set("werld.follows", JSON.stringify(follows)); }
+  const tgt = () => (cfg.newtab === "1" ? ' target="_blank" rel="noopener"' : ' rel="noopener"');
+  const leadSrc = (s) => s.sources.find((x) => x.name === s.lead) || s.sources[0];
+  // A headline is a link to the real article (or, by choice, the WERLD/ story page).
+  function headHref(s) { return cfg.head === "story" ? { href: S(s.id), out: false } : { href: safeUrl(leadSrc(s).url), out: true }; }
+  function headLink(s, cls = "") {
+    const h = headHref(s);
+    return h.out
+      ? `<a class="${cls} out" href="${esc(h.href)}"${tgt()}>${esc(s.title)}<span class="ext" aria-hidden="true">↗</span><span class="sr"> (${esc(leadSrc(s).name)}, opens the article)</span></a>`
+      : `<a class="${cls}" href="${h.href}">${esc(s.title)}</a>`;
+  }
+  const storyBtn = (s) => `<a class="storybtn" href="${S(s.id)}" title="Every outlet and the full timeline">STORY ${esc(s.id)} →</a>`;
+  const starBtn = (k, v, label) => `<button type="button" class="star" data-f="${k}" data-v="${esc(v)}" aria-pressed="${isF(k, v)}" title="${isF(k, v) ? "Unfollow" : "Follow"} ${esc(label)}">${isF(k, v) ? "★ FOLLOWING" : "☆ FOLLOW"}</button>`;
+
   let feed = null, byId = new Map(), knownIds = null, pendingNew = 0;
   const filt = { desk: null, region: null, q: "", multi: false, limit: 60 };
   const lastVisit = Number(store.get("werld.lastVisit")) || 0;
@@ -26,10 +49,15 @@
 
   // ---------- time, in the reader's zone ----------
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const fmtHM = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
-  const fmtDay = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "short" });
-  const fmtShort = new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false });
-  const tzShort = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value || tz;
+  let fmtHM, fmtDay, fmtShort, tzShort;
+  function mkFmt() {
+    const o = { hour12: cfg.clock === "12", ...(cfg.clock === "utc" ? { timeZone: "UTC" } : {}) };
+    fmtHM = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", ...o });
+    fmtDay = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "short", ...(o.timeZone ? { timeZone: "UTC" } : {}) });
+    fmtShort = new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", ...o });
+    tzShort = cfg.clock === "utc" ? "UTC" : (new Intl.DateTimeFormat(undefined, { timeZoneName: "short" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value || tz);
+  }
+  mkFmt();
   const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   function dayLabel(d) {
     const now = new Date(), y = new Date(now); y.setDate(now.getDate() - 1);
@@ -58,14 +86,22 @@
     cx.putImageData(img, 0, 0);
   }
   let noiseT = setInterval(noise, 90);
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let reduce = reduceOS || cfg.calm;
   function setTube(on) {
     document.documentElement.classList.toggle("notube", !on);
     $("#tube").textContent = `TUBE: ${on ? "ON" : "OFF"}`;
-    store.set("werld.tube", on ? "1" : "0");
+    cfg.tube = on; store.set("werld.settings", JSON.stringify(cfg));
     clearInterval(noiseT); if (on) noiseT = setInterval(noise, 90);
   }
-  setTube(store.get("werld.tube") !== "0" && !reduce);
+  function applyCfg() {
+    const h = document.documentElement;
+    h.classList.toggle("calm", !!cfg.calm); h.dataset.size = cfg.size;
+    reduce = reduceOS || cfg.calm;
+    setTube(!!cfg.tube);
+    mkFmt();
+    if (feed) renderAll();
+  }
+  applyCfg();
   $("#tube").onclick = () => setTube(document.documentElement.classList.contains("notube"));
   document.addEventListener("visibilitychange", () => { if (document.hidden) clearInterval(noiseT); else if (!document.documentElement.classList.contains("notube")) { clearInterval(noiseT); noiseT = setInterval(noise, 90); } });
   const tp = document.getElementById("tickpause");
@@ -75,7 +111,7 @@
   const t0 = performance.now();
   function tick() {
     const n = new Date();
-    $("#clock").textContent = n.toLocaleTimeString(undefined, { hour12: false });
+    $("#clock").textContent = n.toLocaleTimeString(undefined, { hour12: cfg.clock === "12", ...(cfg.clock === "utc" ? { timeZone: "UTC" } : {}) });
     $("#tz").textContent = tzShort;
     const e = Math.floor((performance.now() - t0) / 1000), f = Math.floor(((performance.now() - t0) % 1000) / 40);
     const tc = [Math.floor(e / 3600), Math.floor(e / 60) % 60, e % 60, f].map((x) => String(x).padStart(2, "0")).join(":");
@@ -84,7 +120,7 @@
   setInterval(() => { if (!document.hidden) tick(); }, 250); tick();
 
   // ---------- channels ----------
-  const CH = ["live", "brief", "threads", "map", "desks", "method"];
+  const CH = ["mine", "live", "brief", "threads", "map", "desks", "method"];
   let current = null;
   function go(ch, instant) {
     if (!CH.includes(ch)) ch = "live";
@@ -101,10 +137,11 @@
       }
       scrollTo({ top: 0 });
       if (ch === "map") drawMap();
+      if (ch === "mine") renderMine();
     };
     current = ch;
     if (prev && !instant && !reduce) { prev.classList.add("out"); setTimeout(show, 400); } else show();
-    termSay(`> tune ch ${String(CH.indexOf(ch) + 1).padStart(2, "0")} ${ch}`);
+    termSay(`> tune ch ${String(CH.indexOf(ch)).padStart(2, "0")} ${ch}`);
   }
   addEventListener("hashchange", () => go(location.hash.slice(1)));
   addEventListener("keydown", (e) => {
@@ -162,6 +199,7 @@
 
   function renderAll() {
     renderTicker(); renderFacets(); renderStream(); renderTop(); renderBrief(); renderThreads(); renderDesks(); renderMethod();
+    if (current === "mine") renderMine();
     if (mapReady) { drawPins(); drawMini(); }
   }
 
@@ -169,7 +207,7 @@
   function renderTicker() {
     const items = feed.brief.map((i) => byId.get(i)).concat(feed.stories.filter((s) => s.status === "multi" && !(s.sensitive || []).length).slice(0, 14))
       .filter((s, i, a) => s && a.indexOf(s) === i).slice(0, 20);
-    const html = items.map((s) => `<a href="${S(s.id)}"><b style="color:${cvar(s.desk)}">${esc(deskOf(s.desk).code)}</b>${esc(s.title)}</a>`).join("");
+    const html = items.map((s) => { const h = headHref(s); return `<a href="${esc(h.href)}"${h.out ? tgt() : ""}><b style="color:${cvar(s.desk)}">${esc(deskOf(s.desk).code)}</b>${esc(s.title)}${h.out ? " ↗" : ""}</a>`; }).join("");
     const t = $("#track"); t.innerHTML = html + `<span aria-hidden="true" style="display:contents">${html.replace(/<a /g, '<a tabindex="-1" ')}</span>`;
     t.style.setProperty("--dur", `${Math.max(60, items.length * 9)}s`);
   }
@@ -194,25 +232,27 @@
   function storyRow(s, opts = {}) {
     const d = deskOf(s.desk), n = s.sources.length;
     const fresh = lastVisit && new Date(s.first) > lastVisit;
-    const names = s.sources.slice(0, 3).map((x) => esc(x.name)).join(" · ") + (n > 3 ? ` +${n - 3}` : "");
+    const lead = leadSrc(s), others = s.sources.filter((x) => x !== lead);
+    const names = `via <b>${esc(lead.name)}</b>` + (others.length ? ` · ${others.slice(0, 2).map((x) => esc(x.name)).join(" · ")}${others.length > 2 ? ` +${others.length - 2}` : ""}` : "");
     const pl = s.places.slice(0, 3).map(esc).join(", ");
     return `<article class="story${fresh ? " fresh" : ""}${s.severity === 2 ? " sev2" : ""}" data-id="${esc(s.id)}">
       <div class="t">${when(s.last)}</div>
       <span class="dk" style="--c:${cvar(s.desk)}">${esc(d.code)}</span>
-      <h4 dir="auto"><a href="${S(s.id)}">${esc(s.title)}</a>${chipHtml(s)}</h4>
+      <h4 dir="auto">${headLink(s)}${chipHtml(s)}</h4>
       ${s.summary && !opts.compact ? `<p class="sum">${esc(s.summary)}</p>` : ""}
       <div class="meta">
         <span class="src">${names}</span>
-        ${n > 1 ? `<button type="button" data-open>${n} outlets${s.origins && s.origins < n ? ` · ${s.origins} origin${s.origins > 1 ? "s" : ""}` : ""} ▾</button>` : `<a class="n" href="${esc(safeUrl(s.sources[0].url))}" target="_blank" rel="noopener">read ↗</a>`}
+        ${n > 1 ? `<button type="button" data-open aria-expanded="false">${n} outlets${s.origins && s.origins < n ? ` · ${s.origins} origin${s.origins > 1 ? "s" : ""}` : ""} ▾</button>` : ""}
+        ${storyBtn(s)}
         ${pl ? `<span class="pl">${pl}</span>` : ""}
         ${s.first !== s.last && n > 1 ? `<span>first seen ${when(s.first)}</span>` : ""}
       </div>
-      ${n > 1 ? `<div class="srcs">${s.sources.map((x) => `<a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener"><b>${esc(x.name)}</b><span>${when(x.ts)}</span><em>${esc(x.title)}</em></a>`).join("")}</div>` : ""}
+      ${n > 1 ? `<div class="srcs">${s.sources.map((x) => `<a class="srcbtn" href="${esc(safeUrl(x.url))}"${tgt()}><b>${esc(x.name)}</b><span>${when(x.ts)}</span><em dir="auto">${esc(x.title)}</em><i aria-hidden="true">↗</i></a>`).join("")}</div>` : ""}
     </article>`;
   }
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-open]"); if (!b) return;
-    const a = b.closest(".story"); a.classList.toggle("open");
+    const a = b.closest(".story"); a.classList.toggle("open"); b.setAttribute("aria-expanded", a.classList.contains("open"));
     b.textContent = b.textContent.replace(/[▾▴]/, a.classList.contains("open") ? "▴" : "▾");
   });
 
@@ -250,7 +290,7 @@
   function renderTop() {
     $("#top5").innerHTML = feed.brief.slice(0, 5).map((id, i) => {
       const s = byId.get(id); if (!s) return "";
-      return `<li><b>${i + 1}</b><div><a href="${S(s.id)}">${esc(s.title)}</a><small>${esc(deskOf(s.desk).name.toUpperCase())} · ${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""} · ${esc(ago(s.last))}</small></div></li>`;
+      return `<li><b>${i + 1}</b><div>${headLink(s)}<small><a class="mini-s" href="${S(s.id)}">${esc(s.id)} →</a> · ${esc(deskOf(s.desk).name.toUpperCase())} · ${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""} · ${esc(ago(s.last))}</small></div></li>`;
     }).join("");
   }
 
@@ -263,8 +303,8 @@
       return `<article class="bc${i === 0 ? " lead" : ""}" style="--c:${cvar(s.desk)}">
         <div class="no">${String(i + 1).padStart(2, "0")}</div>
         <div class="k">${esc(deskOf(s.desk).name.toUpperCase())}${s.places.length ? " · " + esc(s.places.slice(0, 2).join(" / ").toUpperCase()) : ""}</div>
-        <h3><a href="${S(s.id)}">${esc(s.title)}</a></h3>
-        <div class="meta"><span class="src">${s.sources.slice(0, 4).map((x) => esc(x.name)).join(" · ")}</span><span class="n">${n} outlet${n > 1 ? "s" : ""}</span><span>${esc(ago(s.last))}</span><span class="code-s">${esc(s.id)}</span></div>
+        <h3>${headLink(s)}</h3>
+        <div class="meta"><span class="src">${s.sources.slice(0, 4).map((x) => esc(x.name)).join(" · ")}</span><span class="n">${n} outlet${n > 1 ? "s" : ""}</span><span>${esc(ago(s.last))}</span>${storyBtn(s)}</div>
       </article>`;
     }).join("");
     $("#h-brief").textContent = `THE BRIEF · ${fmtDay.format(d).toUpperCase()}`;
@@ -288,12 +328,13 @@
     $("#threads").innerHTML = threadIdx.map((t) => {
       const max = Math.max(1, ...t.activity.map((a) => a.n));
       const active = t.activity.filter((a) => a.n).length;
-      return `<a class="tcard" href="t/${esc(t.slug)}/">
+      return `<article class="tcard">
         <div class="cnt"><span><b>${t.count_24h}</b> TODAY · ${t.count} IN 30 DAYS</span><span>ACTIVE ${active}/7 DAYS</span></div>
-        <h3>${esc(t.title.toUpperCase())}</h3><p>${esc(t.blurb)}</p>
+        <h3><a class="tlink" href="t/${esc(t.slug)}/">${esc(t.title.toUpperCase())}</a></h3><p>${esc(t.blurb)}</p>
         <div class="spark" aria-hidden="true">${t.activity.map((a) => `<i style="height:${(a.n / max) * 100}%"></i>`).join("")}</div>
-        ${t.latest ? `<div class="latest">${esc(t.latest)}<small>${esc(ago(t.last))}</small></div>` : `<div class="latest">Quiet.</div>`}
-      </a>`;
+        ${t.latest ? `<div class="latest">${t.latest_id ? `<a href="s/${esc(t.latest_id)}/">${esc(t.latest)}</a>` : esc(t.latest)}<small>${esc(ago(t.last))}</small></div>` : `<div class="latest">Quiet.</div>`}
+        <div class="tfoot">${starBtn("threads", t.slug, t.title)}<a class="mini-s" href="rss/thread-${esc(t.slug)}.xml">RSS</a></div>
+      </article>`;
     }).join("");
   }
 
@@ -301,8 +342,8 @@
   function renderDesks() {
     $("#desks").innerHTML = feed.desks.filter((d) => d.count).map((d) => {
       const items = feed.stories.filter((s) => s.desk === d.id).slice(0, 8);
-      return `<section class="desk" style="--c:${cvar(d.id)}"><header><b>${esc(d.name.toUpperCase())}</b><small>${d.count} STORIES</small></header>
-        ${items.map((s) => `<a class="item" href="${S(s.id)}">${esc(s.title)}<small>${when(s.last)} · ${s.sources.slice(0, 2).map((x) => esc(x.name)).join(" · ")}${s.sources.length > 2 ? ` +${s.sources.length - 2}` : ""}</small></a>`).join("")}</section>`;
+      return `<section class="desk" style="--c:${cvar(d.id)}"><header><b>${esc(d.name.toUpperCase())}</b><small>${d.count} STORIES</small>${starBtn("desks", d.id, d.name)}</header>
+        ${items.map((s) => `<div class="item">${headLink(s)}<small>${when(s.last)} · ${s.sources.slice(0, 2).map((x) => esc(x.name)).join(" · ")}${s.sources.length > 2 ? ` +${s.sources.length - 2}` : ""} · <a class="mini-s" href="${S(s.id)}">${esc(s.id)} →</a></small></div>`).join("")}</section>`;
     }).join("");
   }
 
@@ -401,7 +442,7 @@
     mapSel = place;
     document.querySelectorAll("#map .pin").forEach((p) => p.classList.toggle("sel", p.getAttribute("aria-label").startsWith(place + ":")));
     const list = feed.stories.filter((s) => s.places.includes(place));
-    $("#place-h").innerHTML = `${esc(place.toUpperCase())} <small>${list.length} STORIES</small>`;
+    $("#place-h").innerHTML = `${esc(place.toUpperCase())} <small>${list.length} STORIES</small>${starBtn("places", place, place)}`;
     $("#place-list").innerHTML = list.slice(0, 40).map((s) => storyRow(s, { compact: true })).join("");
     if (!quiet) $("#place-list").scrollTop = 0;
   }
@@ -416,8 +457,78 @@
     svg.style("cursor", "pointer").on("click", () => (location.hash = "map"));
   }
 
+  // ---------- MY WERLD/ ----------
+  function placeCounts() {
+    const c = new Map();
+    for (const s of feed.stories) for (const p of s.places) c.set(p, (c.get(p) || 0) + 1);
+    return [...c.entries()].sort((a, b) => b[1] - a[1]);
+  }
+  function picker() {
+    return `<div class="pick">
+      <h3>THREADS</h3><div class="chipsel">${(threadIdx || []).map((t) => starChip("threads", t.slug, t.title)).join("")}</div>
+      <h3>DESKS</h3><div class="chipsel">${feed.desks.filter((d) => d.count).map((d) => starChip("desks", d.id, d.name)).join("")}</div>
+      <h3>PLACES</h3><div class="chipsel">${placeCounts().slice(0, 30).map(([p]) => starChip("places", p, p)).join("")}</div></div>`;
+  }
+  const starChip = (k, v, label) => `<button type="button" class="fchip star" data-f="${k}" data-v="${esc(v)}" aria-pressed="${isF(k, v)}">${isF(k, v) ? "★" : "☆"} ${esc(label)}</button>`;
+  async function renderMine() {
+    const el = $("#mine"); if (!el || !feed) return;
+    if (!threadIdx) await renderThreads();
+    const groups = [
+      ...follows.threads.map((v) => ({ k: "threads", v, label: (threadIdx || []).find((t) => t.slug === v)?.title || v, more: `t/${v}/`, test: (s) => (s.threads || []).includes(v) })),
+      ...follows.desks.map((v) => ({ k: "desks", v, label: deskOf(v).name, more: "#live", test: (s) => s.desk === v })),
+      ...follows.places.map((v) => ({ k: "places", v, label: v, more: "#map", test: (s) => s.places.includes(v) })),
+    ];
+    if (!groups.length) { el.innerHTML = `<div class="onboard"><p class="lede"><b>Pick a few to start.</b> Your channel fills with the latest from each, and shows what's new since your last visit.</p>${picker()}</div>`; return; }
+    el.innerHTML = groups.map((g) => {
+      const list = feed.stories.filter(g.test);
+      const nNew = lastVisit ? list.filter((s) => new Date(s.first) > lastVisit).length : 0;
+      return `<section class="mygroup"><header><span class="kind">${g.k === "threads" ? "THREAD" : g.k === "desks" ? "DESK" : "PLACE"}</span><h2>${esc(g.label.toUpperCase())}</h2>
+        <small>${list.length} LIVE${nNew ? ` · <b>${nNew} NEW</b>` : ""}</small>${starBtn(g.k, g.v, g.label)}</header>
+        ${list.slice(0, 5).map((s) => storyRow(s, { compact: true })).join("") || `<div class="empty">Nothing in the last ${feed.window_hours} hours.</div>`}
+        ${list.length > 5 ? `<a class="more-l" href="${esc(g.more)}">MORE →</a>` : ""}</section>`;
+    }).join("") + `<details class="followmore"${groups.length < 3 ? " open" : ""}><summary>FOLLOW MORE</summary>${picker()}</details>`;
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".star"); if (!b) return;
+    e.preventDefault();
+    toggleF(b.dataset.f, b.dataset.v);
+    const on = isF(b.dataset.f, b.dataset.v);
+    document.querySelectorAll(`.star[data-f="${b.dataset.f}"][data-v="${CSS.escape(b.dataset.v)}"]`).forEach((x) => {
+      x.setAttribute("aria-pressed", on);
+      x.textContent = x.classList.contains("fchip") ? `${on ? "★" : "☆"} ${x.textContent.replace(/^[★☆]\s*/, "")}` : on ? "★ FOLLOWING" : "☆ FOLLOW";
+    });
+    if (current === "mine") renderMine();
+  });
+
+  // ---------- settings dialog ----------
+  const dlg = $("#settings"), form = dlg && dlg.querySelector("form");
+  function fillForm() {
+    const f = form.elements;
+    f.head.value = cfg.head; f.newtab.value = cfg.newtab; f.tube.checked = !!cfg.tube; f.calm.checked = !!cfg.calm;
+    f.size.value = cfg.size; f.clock.value = cfg.clock; f.start.value = cfg.start; f.lang.value = cfg.lang;
+    const feeds = [["rss/all.xml", "Multi-source stories"], ["rss/brief.xml", "The Brief (twice daily)"]]
+      .concat((feed?.desks || []).map((d) => [`rss/desk-${d.id}.xml`, `Desk: ${d.name}`]))
+      .concat((threadIdx || []).map((t) => [`rss/thread-${t.slug}.xml`, `Thread: ${t.title}`]));
+    $("#rsslist").innerHTML = feeds.map(([u, l]) => `<a href="${esc(u)}">${esc(l)}</a>`).join("");
+  }
+  if (dlg) {
+    $("#gear").onclick = () => { fillForm(); dlg.showModal(); };
+    form.addEventListener("change", () => {
+      const f = form.elements;
+      cfg = { ...cfg, head: f.head.value, newtab: f.newtab.value, tube: f.tube.checked, calm: f.calm.checked, size: f.size.value, clock: f.clock.value, start: f.start.value, lang: f.lang.value };
+      store.set("werld.settings", JSON.stringify(cfg));
+      applyCfg();
+    });
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });   // tap outside to close
+    $("#resetset").onclick = () => {
+      if (!confirm("Reset settings, follows and visit history in this browser?")) return;
+      ["werld.settings", "werld.follows", "werld.lastVisit", "werld.tube"].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+      location.reload();
+    };
+  }
+
   // ---------- boot ----------
-  go(location.hash.slice(1) || "live", true);
+  go(location.hash.slice(1) || cfg.start || "live", true);
   load(true).then(() => ensureWorld().then(() => { if (land) { drawMini(); if (current === "map") drawMap(); } }));
   setInterval(() => load(false), POLL_MS);
   setInterval(() => { if (feed) { renderTop(); } }, 60_000);

@@ -15,6 +15,8 @@
 <meta property="og:image" content="https://karambinning.github.io/werld/assets/og.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" type="application/rss+xml" title="WERLD/: multi-source stories" href="rss/all.xml">
+<link rel="alternate" type="application/rss+xml" title="WERLD/: the Brief" href="rss/brief.xml">
 <link rel="stylesheet" href="assets/werld.css">
 </head>
 <body>
@@ -31,6 +33,7 @@
       <small>LIVE INTELLIGENCE ENGINE<br>FROM <em>BINNING.AI</em></small>
     </a>
     <nav class="ch" aria-label="Channels">
+      <a href="#mine" data-ch="mine">CH 00<span>MY WERLD/</span></a>
       <a href="#live" data-ch="live">CH 01<span>LIVE</span></a>
       <a href="#brief" data-ch="brief">CH 02<span>BRIEF</span></a>
       <a href="#threads" data-ch="threads">CH 03<span>THREADS</span></a>
@@ -38,6 +41,7 @@
       <a href="#desks" data-ch="desks">CH 05<span>DESKS</span></a>
       <a href="#method" data-ch="method">CH 06<span>METHOD</span></a>
     </nav>
+    <button class="gear" id="gear" type="button" aria-haspopup="dialog" aria-controls="settings" title="Settings"><span aria-hidden="true">⚙</span><b>SETTINGS</b></button>
     <div class="readout" id="readout">
       <div class="row"><i class="rec"></i><b class="st" id="st">CONNECTING</b></div>
       <div class="row"><span id="clock">--:--:--</span><span id="tz"></span></div>
@@ -52,7 +56,51 @@
 
 <button class="newpill" id="newpill" type="button"></button>
 
+<dialog id="settings" aria-labelledby="set-h">
+  <form method="dialog" class="setform">
+    <header><h2 id="set-h">SETTINGS</h2><button class="x" value="close" aria-label="Close settings">✕</button></header>
+    <p class="hint">Saved in this browser only.</p>
+    <fieldset><legend>Clicking a headline opens</legend>
+      <label><input type="radio" name="head" value="article"> The original article</label>
+      <label><input type="radio" name="head" value="story"> The WERLD/ story page (all outlets + timeline)</label></fieldset>
+    <fieldset><legend>Open articles in</legend>
+      <label><input type="radio" name="newtab" value="1"> A new tab</label>
+      <label><input type="radio" name="newtab" value="0"> This tab</label></fieldset>
+    <fieldset><legend>Screen</legend>
+      <label><input type="checkbox" name="tube"> TV-screen effect (scanlines and static)</label>
+      <label><input type="checkbox" name="calm"> Calm mode: no animation or channel-change effects</label></fieldset>
+    <fieldset><legend>Text size</legend>
+      <label><input type="radio" name="size" value="s"> Small</label>
+      <label><input type="radio" name="size" value="m"> Standard</label>
+      <label><input type="radio" name="size" value="l"> Large</label>
+      <label><input type="radio" name="size" value="xl"> Extra large</label></fieldset>
+    <fieldset><legend>Times</legend>
+      <label><input type="radio" name="clock" value="24"> 24-hour, my time zone</label>
+      <label><input type="radio" name="clock" value="12"> 12-hour, my time zone</label>
+      <label><input type="radio" name="clock" value="utc"> 24-hour, UTC</label></fieldset>
+    <fieldset><legend>Start on</legend>
+      <select name="start" aria-label="Channel to open first">
+        <option value="live">CH 01 Live</option><option value="mine">CH 00 My WERLD/</option><option value="brief">CH 02 Brief</option><option value="threads">CH 03 Threads</option><option value="map">CH 04 Map</option>
+      </select></fieldset>
+    <fieldset><legend>Language</legend>
+      <select name="lang" aria-label="Interface language"><option value="en">English</option></select>
+      <p class="hint">More interface languages are coming. WERLD/ currently covers English-language reporting.</p></fieldset>
+    <fieldset><legend>Subscribe without an account</legend>
+      <p class="hint">RSS feeds work in any feed reader, and can be sent to your inbox with a feed-to-email service.</p>
+      <div class="rsslist" id="rsslist"></div></fieldset>
+    <footer><button class="btn quiet" type="button" id="resetset">[ RESET EVERYTHING ]</button><button class="btn" value="close">[ DONE ]</button></footer>
+  </form>
+</dialog>
+
 <main id="stage">
+
+  <!-- CH 00 MY WERLD -->
+  <section class="scene" id="ch-mine" aria-labelledby="h-mine">
+    <div class="ch-id">● CH 00 MY WERLD/ <span class="tc"></span></div>
+    <h1 class="big" id="h-mine">MY WERLD/</h1>
+    <p class="lede">Follow the threads, desks and places you care about. They're saved in this browser only: no account, nothing sent to us.</p>
+    <div id="mine"></div>
+  </section>
 
   <!-- CH 01 LIVE -->
   <section class="scene" id="ch-live" aria-labelledby="h-live">

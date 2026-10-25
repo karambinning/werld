@@ -11,13 +11,18 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const safe = (u) => (/^https?:\/\//i.test(u || "") ? u : "#");
   const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+  let cfg = { head: "article", newtab: "1", tube: true, calm: false, size: "m", clock: "24" };
+  try { cfg = { ...cfg, ...JSON.parse(store.get("werld.settings") || "{}") }; } catch {}
+  const tgt = () => (cfg.newtab === "1" ? ' target="_blank" rel="noopener"' : ' rel="noopener"');
+  document.documentElement.classList.toggle("calm", !!cfg.calm); document.documentElement.dataset.size = cfg.size;
   const cvar = (d) => `var(${(DESK[d] || DESK.world)[2]})`;
   const S = (code) => `${ROOT}s/${code}/`;
   const getJSON = async (p) => { const r = await fetch(`${ROOT}${p}?t=${Date.now()}`, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
 
   // ---------- time (reader's zone) ----------
-  const fmtHM = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
-  const fmtDT = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+  const TO = { hour12: cfg.clock === "12", ...(cfg.clock === "utc" ? { timeZone: "UTC" } : {}) };
+  const fmtHM = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", ...TO });
+  const fmtDT = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", ...TO });
   const fmtDay = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long" });
   const tzShort = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value || "";
   const dk = (d) => d.toDateString();
@@ -47,9 +52,9 @@
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let nt;
   function noise() { cv.width = 160; cv.height = 100; const im = cx.createImageData(160, 100); for (let i = 0; i < im.data.length; i += 4) { const v = Math.random() * 255; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; } cx.putImageData(im, 0, 0); }
-  function setTube(on) { document.documentElement.classList.toggle("notube", !on); $("#tube").textContent = `TUBE: ${on ? "ON" : "OFF"}`; store.set("werld.tube", on ? "1" : "0"); clearInterval(nt); if (on) nt = setInterval(noise, 90); }
-  setTube(store.get("werld.tube") !== "0" && !reduce);
-  $("#tube").onclick = () => setTube(document.documentElement.classList.contains("notube"));
+  function setTube(on) { document.documentElement.classList.toggle("notube", !on); $("#tube").textContent = `TUBE: ${on ? "ON" : "OFF"}`; clearInterval(nt); if (on) nt = setInterval(noise, 90); }
+  setTube(!!cfg.tube && !reduce && !cfg.calm);
+  $("#tube").onclick = () => { const on = document.documentElement.classList.contains("notube"); setTube(on); cfg.tube = on; store.set("werld.settings", JSON.stringify(cfg)); };
   setInterval(() => { if (!document.hidden) $("#clock").textContent = new Date().toLocaleTimeString(undefined, { hour12: false }); }, 1000);
   document.addEventListener("visibilitychange", () => { if (document.hidden) clearInterval(nt); else if (!document.documentElement.classList.contains("notube")) { clearInterval(nt); nt = setInterval(noise, 90); } });
   let main = $("#page");
@@ -121,7 +126,7 @@
       <div class="story-grid">
         <section>
           <div class="sect">TIMELINE <small>${s.timeline.length} REPORTS · NEWEST FIRST · ${esc(tzShort)}</small></div>
-          <ol class="tl">${s.timeline.map((r, i) => `<li${i >= s.timeline.length - 1 ? ' class="origin"' : ""}><time>${esc(when(r.ts))}</time><div><b>${esc(r.src)}${(s.sources.find((x) => x.name === r.src) || {}).kind === "state" ? ` <span class="chip warn">STATE MEDIA</span>` : ""}</b><a href="${esc(safe(r.url))}" target="_blank" rel="noopener">${esc(r.title)} ↗</a>${i === s.timeline.length - 1 ? `<small>FIRST REPORT</small>` : ""}</div></li>`).join("")}</ol>
+          <ol class="tl">${s.timeline.map((r, i) => `<li${i >= s.timeline.length - 1 ? ' class="origin"' : ""}><time>${esc(when(r.ts))}</time><div><b>${esc(r.src)}${(s.sources.find((x) => x.name === r.src) || {}).kind === "state" ? ` <span class="chip warn">STATE MEDIA</span>` : ""}</b><a class="srcbtn-t" href="${esc(safe(r.url))}"${tgt()} dir="auto">${esc(r.title)} <span aria-hidden="true">↗</span></a>${i === s.timeline.length - 1 ? `<small>FIRST REPORT</small>` : ""}</div></li>`).join("")}</ol>
           ${s.threads?.length ? `<div class="sect">PART OF</div><div class="row-btns">${s.threads.map((t) => `<a class="btn quiet" href="${ROOT}t/${esc(t)}/">[ THREAD: ${esc(t.replace(/-/g, " ").toUpperCase())} ]</a>`).join(" ")}</div>` : ""}
           ${s.related?.length ? `<div class="sect">ALSO IN ${esc((s.places[0] || "").toUpperCase())}</div>${s.related.map((r) => `<a class="item rel" href="${S(r.id)}"><span class="dk" style="--c:${cvar(r.desk)}">${esc(DESK[r.desk]?.[1] || "")}</span>${esc(r.title)}<small>${esc(ago(r.last))}</small></a>`).join("")}` : ""}
         </section>
@@ -180,6 +185,7 @@
       <h1 class="big">${esc(t.title.toUpperCase())}</h1>
       <p class="lede">${esc(t.blurb)} <b>${t.count}</b> stories in the last 30 days, <b>${t.count_24h}</b> in the last 24 hours. Stories join this thread automatically by place and topic, so a few may not belong.</p>
       <div class="activity" aria-label="Stories per day, last 7 days">${t.activity.map((a) => `<div><i style="--h:${(a.n / max) * 100}%"></i><small>${esc(new Date(a.day + "T12:00:00").toLocaleDateString(undefined, { weekday: "short" }).toUpperCase())}</small><em>${a.n}</em></div>`).join("")}</div>
+      <div class="row-btns" style="margin:6px 0 4px"><a class="btn quiet" href="${ROOT}rss/thread-${esc(slug)}.xml">[ ⌁ RSS FOR THIS THREAD ]</a><a class="btn quiet" href="${ROOT}#mine">[ ☆ FOLLOW IN MY WERLD/ ]</a></div>
       <div class="thread-tl">${html || `<div class="empty">Nothing on this thread in the last 30 days.</div>`}</div>`;
   }
 
