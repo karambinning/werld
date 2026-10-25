@@ -26,9 +26,10 @@
     <nav class="ch" aria-label="Channels">
       <a href="#live" data-ch="live">CH 01<span>LIVE</span></a>
       <a href="#brief" data-ch="brief">CH 02<span>BRIEF</span></a>
-      <a href="#map" data-ch="map">CH 03<span>MAP</span></a>
-      <a href="#desks" data-ch="desks">CH 04<span>DESKS</span></a>
-      <a href="#method" data-ch="method">CH 05<span>METHOD</span></a>
+      <a href="#threads" data-ch="threads">CH 03<span>THREADS</span></a>
+      <a href="#map" data-ch="map">CH 04<span>MAP</span></a>
+      <a href="#desks" data-ch="desks">CH 05<span>DESKS</span></a>
+      <a href="#method" data-ch="method">CH 06<span>METHOD</span></a>
     </nav>
     <div class="readout" id="readout">
       <div class="row"><i class="rec"></i><b class="st" id="st">CONNECTING</b></div>
@@ -55,7 +56,7 @@
         <div class="search"><span>&gt;</span><input id="q" type="search" placeholder="search the wire" autocomplete="off" aria-label="Search stories"></div>
         <div><h3>DESKS</h3><div class="facet" id="f-desk"></div></div>
         <div><h3>REGIONS</h3><div class="facet" id="f-region"></div></div>
-        <button class="toggle" id="f-multi" type="button" aria-pressed="false"><i></i>Confirmed by 2+ outlets</button>
+        <button class="toggle" id="f-multi" type="button" aria-pressed="false"><i></i>Confirmed: 2+ independent origins</button>
       </aside>
       <div>
         <div class="since" id="since" hidden></div>
@@ -77,14 +78,22 @@
         <h2 class="big" id="h-brief">THE BRIEF</h2>
         <p class="lede">The eight stories that matter most in the last 24 hours, one per place. Ranked by how many separate outlets are reporting them, how serious they are, and how recent. <b>No model writes these lines</b>: every headline is the reporting outlet's own.</p>
       </div>
-      <div><button class="btn quiet" id="copybrief" type="button">[ COPY AS TEXT ]</button></div>
+      <div class="row-btns"><a class="btn" id="edlink" href="b/">[ BRIEF ARCHIVE ]</a><button class="btn quiet" id="copybrief" type="button">[ COPY AS TEXT ]</button></div>
     </div>
     <div class="brief" id="brief"></div>
   </section>
 
-  <!-- CH 03 MAP -->
+  <!-- CH 03 THREADS -->
+  <section class="scene" id="ch-threads" aria-labelledby="h-threads">
+    <div class="ch-id">● CH 03 THREADS <span class="tc" id="tc-threads"></span></div>
+    <h2 class="big" id="h-threads">THE THREADS</h2>
+    <p class="lede">The long-running stories WERLD/ follows: wars, crises and fault lines. Each thread collects every story about it into one timeline, so you can see how it has moved day by day.</p>
+    <div class="tgrid" id="threads"></div>
+  </section>
+
+  <!-- CH 04 MAP -->
   <section class="scene" id="ch-map" aria-labelledby="h-map">
-    <div class="ch-id">● CH 03 MAP <span class="tc" id="tc-map"></span></div>
+    <div class="ch-id">● CH 04 MAP <span class="tc" id="tc-map"></span></div>
     <h2 class="big" id="h-map">WHERE IT'S HAPPENING</h2>
     <p class="lede">Every story that names a place is pinned to it. Bigger pins mean more stories; pulsing pins carry a severe event. Pick a pin to read what is happening there.</p>
     <div class="map-wrap">
@@ -98,7 +107,7 @@
 
   <!-- CH 04 DESKS -->
   <section class="scene" id="ch-desks" aria-labelledby="h-desks">
-    <div class="ch-id">● CH 04 DESKS <span class="tc" id="tc-desks"></span></div>
+    <div class="ch-id">● CH 05 DESKS <span class="tc" id="tc-desks"></span></div>
     <h2 class="big" id="h-desks">BY DESK</h2>
     <p class="lede">The latest from each desk, side by side.</p>
     <div class="desks" id="desks"></div>
@@ -106,7 +115,7 @@
 
   <!-- CH 05 METHOD -->
   <section class="scene" id="ch-method" aria-labelledby="h-method">
-    <div class="ch-id">● CH 05 METHOD</div>
+    <div class="ch-id">● CH 06 METHOD</div>
     <h2 class="big" id="h-method">HOW WERLD WORKS</h2>
     <div class="method">
       <div>
@@ -119,7 +128,7 @@
       <ol class="rules">
         <li><b>01</b><div><strong>The outlet's words, not ours.</strong>Headlines are shown as each outlet published them. No model rewrites or summarises them on this page.</div></li>
         <li><b>02</b><div><strong>Every story has a source you can check.</strong>Each line links to the original reporting, with every outlet that carried it.</div></li>
-        <li><b>03</b><div><strong>Counting outlets, not trusting one.</strong>When several outlets report the same event, WERLD merges them into one story and says how many. Use the 2+ filter to see only those.</div></li>
+        <li><b>03</b><div><strong>Counting origins, not copies.</strong>When several outlets report the same event, WERLD/ merges them into one story. Outlets running near-identical wording (usually one wire report, syndicated) count as one origin. A story is CONFIRMED only with two or more independent origins; otherwise it is marked SINGLE SOURCE.</div></li>
         <li><b>04</b><div><strong>Your clock, not ours.</strong>Times are shown in your own time zone. "NEW" marks stories that arrived since your last visit.</div></li>
         <li><b>05</b><div><strong>If the engine stops, the page says so.</strong>The status light turns amber and shows when the feed last updated, instead of pretending it's live.</div></li>
         <li><b>06</b><div><strong>A draft, and corrections are welcome.</strong>WERLD is in development. Place tags and desk labels are assigned automatically and can be wrong. Spot one? <a href="https://github.com/karambinning/werld/issues/new?title=Correction:%20" target="_blank" rel="noopener" style="color:var(--phos)">Report it</a>.</div></li>
@@ -132,6 +141,8 @@
 <footer>
   <span class="draft">DRAFT</span>
   <span class="term" id="term">&gt; werld --live</span>
+  <a href="v/">Videos</a>
+  <a href="b/">Briefs</a>
   <a href="https://github.com/karambinning/werld/issues/new?title=Correction:%20" target="_blank" rel="noopener">Report a correction</a>
   <a href="https://karambinning.github.io/portfolio/" target="_blank" rel="noopener">Binning.AI</a>
   <button class="tubebtn" id="tube" type="button">TUBE: ON</button>

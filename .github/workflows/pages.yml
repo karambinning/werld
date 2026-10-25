@@ -23,8 +23,7 @@ jobs:
         with: { ref: feed, path: feed }
       - name: assemble
         run: |
-          mkdir -p site/data
-          cp feed/feed.json feed/brief.json site/data/
+          rsync -a --exclude .git feed/ site/
           touch site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -9,6 +9,9 @@
 
   const $ = (s, el = document) => el.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const S = (code) => `s/${code}/`;
+  const devel = (s) => Date.now() - new Date(s.last) < 3 * 3600e3 && Date.now() - new Date(s.first) < 24 * 3600e3 && s.sources.length > 1;
+  const chipHtml = (s) => `<span class="chips"><span class="chip ${s.status === "confirmed" ? "ok" : "warn"}">${s.status === "confirmed" ? "CONFIRMED" : "SINGLE"}</span>${devel(s) ? `<span class="chip live">DEVELOPING</span>` : ""}</span>`;
   const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "#");
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -78,7 +81,7 @@
   setInterval(tick, 40); tick();
 
   // ---------- channels ----------
-  const CH = ["live", "brief", "map", "desks", "method"];
+  const CH = ["live", "brief", "threads", "map", "desks", "method"];
   let current = null;
   function go(ch, instant) {
     if (!CH.includes(ch)) ch = "live";
@@ -150,7 +153,7 @@
   const cvar = (desk) => `var(${DESK_VAR[desk] || "--phos"})`;
 
   function renderAll() {
-    renderTicker(); renderFacets(); renderStream(); renderTop(); renderBrief(); renderDesks(); renderMethod();
+    renderTicker(); renderFacets(); renderStream(); renderTop(); renderBrief(); renderThreads(); renderDesks(); renderMethod();
     if (mapReady) { drawPins(); drawMini(); }
   }
 
@@ -158,7 +161,7 @@
   function renderTicker() {
     const items = feed.brief.map((i) => byId.get(i)).concat(feed.stories.filter((s) => s.sources.length > 1).slice(0, 14))
       .filter((s, i, a) => s && a.indexOf(s) === i).slice(0, 20);
-    const html = items.map((s) => `<a href="${esc(safeUrl(s.sources[0].url))}" target="_blank" rel="noopener"><b style="color:${cvar(s.desk)}">${esc(deskOf(s.desk).code)}</b>${esc(s.title)}</a>`).join("");
+    const html = items.map((s) => `<a href="${S(s.id)}"><b style="color:${cvar(s.desk)}">${esc(deskOf(s.desk).code)}</b>${esc(s.title)}</a>`).join("");
     const t = $("#track"); t.innerHTML = html + html;
     t.style.setProperty("--dur", `${Math.max(60, items.length * 9)}s`);
   }
@@ -188,11 +191,11 @@
     return `<article class="story${fresh ? " fresh" : ""}${s.severity === 2 ? " sev2" : ""}" data-id="${s.id}">
       <div class="t">${when(s.last)}</div>
       <span class="dk" style="--c:${cvar(s.desk)}">${esc(d.code)}</span>
-      <h4><a href="${esc(safeUrl(s.sources[0].url))}" target="_blank" rel="noopener">${esc(s.title)}</a></h4>
+      <h4><a href="${S(s.id)}">${esc(s.title)}</a>${chipHtml(s)}</h4>
       ${s.summary && !opts.compact ? `<p class="sum">${esc(s.summary)}</p>` : ""}
       <div class="meta">
         <span class="src">${names}</span>
-        ${n > 1 ? `<button type="button" data-open>${n} outlets ▾</button>` : ""}
+        ${n > 1 ? `<button type="button" data-open>${n} outlets${s.origins && s.origins < n ? ` · ${s.origins} origin${s.origins > 1 ? "s" : ""}` : ""} ▾</button>` : `<a class="n" href="${esc(safeUrl(s.sources[0].url))}" target="_blank" rel="noopener">read ↗</a>`}
         ${pl ? `<span class="pl">${pl}</span>` : ""}
         ${s.first !== s.last && n > 1 ? `<span>first seen ${when(s.first)}</span>` : ""}
       </div>
@@ -210,14 +213,14 @@
     return feed.stories.filter((s) =>
       (!filt.desk || s.desk === filt.desk) &&
       (!filt.region || s.region === filt.region) &&
-      (!filt.multi || s.sources.length > 1) &&
+      (!filt.multi || s.status === "confirmed") &&
       (!filt.q || (s.title + " " + s.places.join(" ") + " " + s.sources.map((x) => x.name + " " + x.title).join(" ")).toLowerCase().includes(filt.q)));
   }
   function renderStream() {
     const list = filtered();
-    const multi = feed.stories.filter((s) => s.sources.length > 1).length;
+    const multi = feed.stories.filter((s) => s.status === "confirmed").length;
     const outlets = new Set(feed.stories.flatMap((s) => s.sources.map((x) => x.name))).size;
-    $("#lede-live").innerHTML = `<b>${feed.stories.length}</b> stories from <b>${outlets}</b> outlets in the last ${feed.window_hours} hours, <b>${multi}</b> of them confirmed by more than one outlet. Updated ${esc(ago(feed.generated))}. Times in <b>${esc(tzShort)}</b>.`;
+    $("#lede-live").innerHTML = `<b>${feed.stories.length}</b> stories from <b>${outlets}</b> outlets in the last ${feed.window_hours} hours, <b>${multi}</b> of them confirmed by two or more independent origins. Updated ${esc(ago(feed.generated))}. Times in <b>${esc(tzShort)}</b>.`;
     if (lastVisit) {
       const n = feed.stories.filter((s) => new Date(s.first) > lastVisit).length;
       const el = $("#since"); el.hidden = false;
@@ -239,7 +242,7 @@
   function renderTop() {
     $("#top5").innerHTML = feed.brief.slice(0, 5).map((id, i) => {
       const s = byId.get(id); if (!s) return "";
-      return `<li><b>${i + 1}</b><div><a href="${esc(safeUrl(s.sources[0].url))}" target="_blank" rel="noopener">${esc(s.title)}</a><small>${esc(deskOf(s.desk).name.toUpperCase())} · ${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""} · ${esc(ago(s.last))}</small></div></li>`;
+      return `<li><b>${i + 1}</b><div><a href="${S(s.id)}">${esc(s.title)}</a><small>${esc(deskOf(s.desk).name.toUpperCase())} · ${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""} · ${esc(ago(s.last))}</small></div></li>`;
     }).join("");
   }
 
@@ -252,11 +255,12 @@
       return `<article class="bc${i === 0 ? " lead" : ""}" style="--c:${cvar(s.desk)}">
         <div class="no">${String(i + 1).padStart(2, "0")}</div>
         <div class="k">${esc(deskOf(s.desk).name.toUpperCase())}${s.places.length ? " · " + esc(s.places.slice(0, 2).join(" / ").toUpperCase()) : ""}</div>
-        <h3><a href="${esc(safeUrl(s.sources[0].url))}" target="_blank" rel="noopener">${esc(s.title)}</a></h3>
-        <div class="meta"><span class="src">${s.sources.slice(0, 4).map((x) => esc(x.name)).join(" · ")}</span><span class="n">${n} outlet${n > 1 ? "s" : ""}</span><span>${esc(ago(s.last))}</span></div>
+        <h3><a href="${S(s.id)}">${esc(s.title)}</a></h3>
+        <div class="meta"><span class="src">${s.sources.slice(0, 4).map((x) => esc(x.name)).join(" · ")}</span><span class="n">${n} outlet${n > 1 ? "s" : ""}</span><span>${esc(ago(s.last))}</span><span class="code-s">${esc(s.id)}</span></div>
       </article>`;
     }).join("");
     $("#h-brief").textContent = `THE BRIEF · ${fmtDay.format(d).toUpperCase()}`;
+    if (feed.edition) { $("#edlink").href = `b/${feed.edition.n}/`; $("#edlink").textContent = `[ LATEST: BRIEF #${feed.edition.n} ]`; }
   }
   $("#copybrief").onclick = async () => {
     const lines = [`WERLD/ BRIEF · ${fmtDay.format(new Date(feed.generated))}`, ""];
@@ -267,12 +271,30 @@
     setTimeout(() => ($("#copybrief").textContent = "[ COPY AS TEXT ]"), 1600);
   };
 
+  // ---------- THREADS ----------
+  let threadIdx = null, threadT = 0;
+  async function renderThreads() {
+    if (!threadIdx || Date.now() - threadT > 120e3) {
+      try { threadIdx = (await (await fetch(`data/threads.json?t=${Date.now()}`, { cache: "no-store" })).json()).threads; threadT = Date.now(); } catch { threadIdx = threadIdx || []; }
+    }
+    $("#threads").innerHTML = threadIdx.map((t) => {
+      const max = Math.max(1, ...t.activity.map((a) => a.n));
+      const active = t.activity.filter((a) => a.n).length;
+      return `<a class="tcard" href="t/${esc(t.slug)}/">
+        <div class="cnt"><span><b>${t.count_24h}</b> TODAY · ${t.count} IN 30 DAYS</span><span>ACTIVE ${active}/7 DAYS</span></div>
+        <h3>${esc(t.title.toUpperCase())}</h3><p>${esc(t.blurb)}</p>
+        <div class="spark" aria-hidden="true">${t.activity.map((a) => `<i style="height:${(a.n / max) * 100}%"></i>`).join("")}</div>
+        ${t.latest ? `<div class="latest">${esc(t.latest)}<small>${esc(ago(t.last))}</small></div>` : `<div class="latest">Quiet.</div>`}
+      </a>`;
+    }).join("");
+  }
+
   // ---------- DESKS ----------
   function renderDesks() {
     $("#desks").innerHTML = feed.desks.filter((d) => d.count).map((d) => {
       const items = feed.stories.filter((s) => s.desk === d.id).slice(0, 8);
       return `<section class="desk" style="--c:${cvar(d.id)}"><header><b>${esc(d.name.toUpperCase())}</b><small>${d.count} STORIES</small></header>
-        ${items.map((s) => `<a class="item" href="${esc(safeUrl(s.sources[0].url))}" target="_blank" rel="noopener">${esc(s.title)}<small>${when(s.last)} · ${s.sources.slice(0, 2).map((x) => esc(x.name)).join(" · ")}${s.sources.length > 2 ? ` +${s.sources.length - 2}` : ""}</small></a>`).join("")}</section>`;
+        ${items.map((s) => `<a class="item" href="${S(s.id)}">${esc(s.title)}<small>${when(s.last)} · ${s.sources.slice(0, 2).map((x) => esc(x.name)).join(" · ")}${s.sources.length > 2 ? ` +${s.sources.length - 2}` : ""}</small></a>`).join("")}</section>`;
     }).join("");
   }
 
@@ -285,7 +307,8 @@
   engine      Binning.AI Intel Engine · collector <em>${esc(agent ? agent.name : "?")}</em> ${esc(agent ? agent.status : "")}
   archive     ${Number(e.items_total || 0).toLocaleString()} reports collected to date
   last ingest ${esc(e.last_ingest ? ago(e.last_ingest) : "unknown")}
-  this build  ${e.pulled} scanned → ${e.kept} kept → ${feed.stories.length} stories
+  this build  ${e.pulled} scanned → ${e.new ?? e.kept} new → ${feed.stories.length} live stories
+  archive     ${Number(e.archive || 0).toLocaleString()} reports kept by WERLD/ · story codes never change
   window      last ${feed.window_hours} hours · built ${esc(ago(feed.generated))}
 
 <b>$</b> werld pipeline
