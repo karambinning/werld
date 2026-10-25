@@ -42,7 +42,9 @@
   }
   // An outlet's name always opens that outlet's article.
   const srcLink = (x) => `<a class="srcname" href="${esc(safeUrl(x.url))}"${tgt()} title="Read it on ${esc(x.name)}">${esc(x.name)}<span aria-hidden="true">↗</span></a>`;
-  const storyBtn = (s) => `<a class="storybtn" href="${S(s.id)}" title="Every outlet and the full timeline">STORY ${esc(s.id)} →</a>`;
+  // Karam's rule: the BOX opens the WERLD/ story page; the TITLE itself opens the article.
+  // An invisible link stretched over the whole box; the title and outlet links sit above it.
+  const storyBtn = (s) => `<a class="boxlink" href="${S(s.id)}"><span class="sr">Story page: every outlet and the timeline for “${esc(s.title)}”</span></a>`;
   const starBtn = (k, v, label) => `<button type="button" class="star" data-f="${k}" data-v="${esc(v)}" aria-pressed="${isF(k, v)}" title="${isF(k, v) ? "Unfollow" : "Follow"} ${esc(label)}">${isF(k, v) ? "★ FOLLOWING" : "☆ FOLLOW"}</button>`;
 
   let feed = null, byId = new Map(), knownIds = null, pendingNew = 0;

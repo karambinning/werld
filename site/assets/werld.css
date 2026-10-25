@@ -549,3 +549,22 @@ a.srcname:hover span{opacity:1}
 .slog time{color:var(--dim)}
 .slog b{color:var(--amber);font-weight:500}
 @media (max-width:820px){.slog li{grid-template-columns:1fr}}
+/* final link rule (Karam, 25 Oct): box → story page, title → article, no STORY button */
+.card .boxlink{position:static}
+.card .boxlink::after{content:"";position:absolute;inset:0;z-index:1}
+.card .cardlink,.card .srcname,.card button,.card .chips,.card .srcs{position:relative;z-index:2}
+.card{cursor:pointer}
+.card .cardlink{cursor:pointer}
+.card:has(.boxlink:focus-visible){outline:2px solid var(--phos);outline-offset:2px}
+.card .boxlink:focus-visible{outline:none!important}
+.story.card:hover,.desk .item.card:hover,.top5 li.card:hover{background:linear-gradient(90deg,rgba(0,212,255,.07),transparent 80%)}
+.card .cardlink:hover{text-decoration:underline;text-decoration-color:var(--phos);text-underline-offset:4px}
+.card a.boxlink{position:static!important;z-index:auto!important}
+/* Brief cards must shrink to the screen on phones (they were 460px wide in a 390px viewport) */
+.bc{min-width:0;grid-template-columns:72px minmax(0,1fr)}
+.bc > *{min-width:0}
+@media (max-width:820px){
+  .brief{grid-template-columns:minmax(0,1fr)}
+  .bc,.bc.lead{grid-template-columns:52px minmax(0,1fr)}
+  .bc .meta .src{white-space:normal}
+}
