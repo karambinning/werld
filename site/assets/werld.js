@@ -20,11 +20,11 @@
 
   // ---------- settings + follows (this browser only) ----------
   const reduceOS = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const DEF = { v: 2, head: "story", newtab: "1", tube: !reduceOS, calm: reduceOS, size: "m", clock: "24", start: "live", lang: "en" };
+  const DEF = { v: 3, head: "article", newtab: "1", tube: !reduceOS, calm: reduceOS, size: "m", clock: "24", start: "live", lang: "en" };
   let cfg;
   try { cfg = { ...DEF, ...JSON.parse(store.get("werld.settings") || "{}") }; } catch { cfg = { ...DEF }; }
   if (!store.get("werld.settings") && store.get("werld.tube") === "0") cfg.tube = false;
-  if (cfg.v !== 2) { cfg.v = 2; cfg.head = "story"; }   // boxes now open the story page by default
+  if (cfg.v !== 3) { cfg.v = 3; cfg.head = "article"; }   // Karam: headline → the article; the STORY box → the story page
   let follows;
   try { follows = { threads: [], desks: [], places: [], ...JSON.parse(store.get("werld.follows") || "{}") }; } catch { follows = { threads: [], desks: [], places: [] }; }
   const isF = (k, v) => (follows[k] || []).includes(v);
@@ -294,7 +294,7 @@
   function renderTop() {
     $("#top5").innerHTML = feed.brief.slice(0, 5).map((id, i) => {
       const s = byId.get(id); if (!s) return "";
-      return `<li class="card"><b>${i + 1}</b><div>${headLink(s)}<small>${srcLink(leadSrc(s))} · ${esc(deskOf(s.desk).name.toUpperCase())} · ${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""} · ${esc(ago(s.last))}</small></div></li>`;
+      return `<li class="card"><b>${i + 1}</b><div>${headLink(s)}<small>${storyBtn(s)} · ${esc(deskOf(s.desk).name.toUpperCase())} · ${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""} · ${esc(ago(s.last))}</small></div></li>`;
     }).join("");
   }
 
@@ -347,7 +347,7 @@
     $("#desks").innerHTML = feed.desks.filter((d) => d.count).map((d) => {
       const items = feed.stories.filter((s) => s.desk === d.id).slice(0, 8);
       return `<section class="desk" style="--c:${cvar(d.id)}"><header><b>${esc(d.name.toUpperCase())}</b><small>${d.count} STORIES</small>${starBtn("desks", d.id, d.name)}</header>
-        ${items.map((s) => `<div class="item card">${headLink(s)}<small>${when(s.last)} · ${s.sources.slice(0, 2).map(srcLink).join(" · ")}${s.sources.length > 2 ? ` +${s.sources.length - 2}` : ""}</small></div>`).join("")}</section>`;
+        ${items.map((s) => `<div class="item card">${headLink(s)}<small>${when(s.last)} · ${s.sources.slice(0, 2).map(srcLink).join(" · ")}${s.sources.length > 2 ? ` +${s.sources.length - 2}` : ""} · ${storyBtn(s)}</small></div>`).join("")}</section>`;
     }).join("");
   }
 

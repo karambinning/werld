@@ -538,3 +538,8 @@ a.srcname:hover span{opacity:1}
 .story-h a.out .ext{font-size:.5em;vertical-align:.5em}
 .story-h a.out:hover{color:var(--phos)}
 .credit a.srcname{font-weight:500}
+/* Karam's rule: headline → article, STORY box → story page. No whole-card link. */
+.card .cardlink::after{content:none!important}
+.card{cursor:auto}
+.storybtn{font-size:11px;padding:4px 10px;border-color:var(--phos);background:rgba(0,212,255,.06)}
+.top5 .storybtn,.desk .storybtn{font-size:10px;padding:2px 7px}
