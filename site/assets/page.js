@@ -11,7 +11,7 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const safe = (u) => (/^https?:\/\//i.test(u || "") ? u : "#");
   const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
-  let cfg = { head: "article", newtab: "1", tube: true, calm: false, size: "m", clock: "24" };
+  let cfg = { head: "story", newtab: "1", tube: true, calm: false, size: "m", clock: "24" };
   try { cfg = { ...cfg, ...JSON.parse(store.get("werld.settings") || "{}") }; } catch {}
   const tgt = () => (cfg.newtab === "1" ? ' target="_blank" rel="noopener"' : ' rel="noopener"');
   document.documentElement.classList.toggle("calm", !!cfg.calm); document.documentElement.dataset.size = cfg.size;
@@ -100,6 +100,7 @@
     store.set(key, String(s.timeline.length));
     const newSince = seenN && s.timeline.length > seenN ? s.timeline.length - seenN : 0;
     const n = s.sources.length;
+    const leadUrl = (s.sources.find((x) => x.name === s.lead) || s.sources[0]).url;
     let since = "";
     if (video && video.published) {
       const after = s.timeline.filter((r) => new Date(r.ts) > new Date(video.published));
@@ -113,8 +114,8 @@
         <span class="dk">${esc(DESK[s.desk]?.[1] || "")}</span>${chips(s)}
       </div>
       ${s.sensitive?.length ? `<div class="sensnote"><b>SENSITIVE</b> ${esc(s.sensitive.map((k) => ({ "sexual-offences": "sexual offences", suicide: "suicide", children: "harm to children", "uk-legal": "UK legal proceedings" }[k] || k)).join(" · "))}. WERLD/ lists this story but never features it in the Brief, the ticker or a video.${s.sensitive.includes("suicide") ? ` If you're affected, Samaritans are available free on <b>116 123</b> (UK &amp; ROI).` : ""}</div>` : ""}
-      <h1 class="story-h" dir="auto">${esc(s.title)}</h1>
-      <p class="credit">Headline as published by <b>${esc(s.lead)}</b>. WERLD/ does not rewrite headlines.</p>
+      <h1 class="story-h" dir="auto"><a class="out" href="${esc(safe(leadUrl))}"${tgt()}>${esc(s.title)}<span class="ext" aria-hidden="true">↗</span><span class="sr"> (opens the article on ${esc(s.lead)})</span></a></h1>
+      <p class="credit">Headline as published by <a class="srcname" href="${esc(safe(leadUrl))}"${tgt()}>${esc(s.lead)}<span aria-hidden="true">↗</span></a>. Tap the headline to read it there. WERLD/ does not rewrite headlines.</p>
       <div class="facts">
         <div><small>FIRST SEEN</small><b>${esc(when(s.first))}</b></div>
         <div><small>LAST UPDATE</small><b>${esc(ago(s.last))}</b></div>
@@ -126,7 +127,7 @@
       <div class="story-grid">
         <section>
           <div class="sect">TIMELINE <small>${s.timeline.length} REPORTS · NEWEST FIRST · ${esc(tzShort)}</small></div>
-          <ol class="tl">${s.timeline.map((r, i) => `<li${i >= s.timeline.length - 1 ? ' class="origin"' : ""}><time>${esc(when(r.ts))}</time><div><b>${esc(r.src)}${(s.sources.find((x) => x.name === r.src) || {}).kind === "state" ? ` <span class="chip warn">STATE MEDIA</span>` : ""}</b><a class="srcbtn-t" href="${esc(safe(r.url))}"${tgt()} dir="auto">${esc(r.title)} <span aria-hidden="true">↗</span></a>${i === s.timeline.length - 1 ? `<small>FIRST REPORT</small>` : ""}</div></li>`).join("")}</ol>
+          <ol class="tl">${s.timeline.map((r, i) => `<li${i >= s.timeline.length - 1 ? ' class="origin"' : ""}><time>${esc(when(r.ts))}</time><div><b><a class="srcname" href="${esc(safe(r.url))}"${tgt()}>${esc(r.src)}<span aria-hidden="true">↗</span></a>${(s.sources.find((x) => x.name === r.src) || {}).kind === "state" ? ` <span class="chip warn">STATE MEDIA</span>` : ""}</b><a class="srcbtn-t" href="${esc(safe(r.url))}"${tgt()} dir="auto">${esc(r.title)} <span aria-hidden="true">↗</span></a>${i === s.timeline.length - 1 ? `<small>FIRST REPORT</small>` : ""}</div></li>`).join("")}</ol>
           ${s.threads?.length ? `<div class="sect">PART OF</div><div class="row-btns">${s.threads.map((t) => `<a class="btn quiet" href="${ROOT}t/${esc(t)}/">[ THREAD: ${esc(t.replace(/-/g, " ").toUpperCase())} ]</a>`).join(" ")}</div>` : ""}
           ${s.related?.length ? `<div class="sect">ALSO IN ${esc((s.places[0] || "").toUpperCase())}</div>${s.related.map((r) => `<a class="item rel" href="${S(r.id)}"><span class="dk" style="--c:${cvar(r.desk)}">${esc(DESK[r.desk]?.[1] || "")}</span>${esc(r.title)}<small>${esc(ago(r.last))}</small></a>`).join("")}` : ""}
         </section>

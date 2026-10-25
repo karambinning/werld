@@ -20,10 +20,11 @@
 
   // ---------- settings + follows (this browser only) ----------
   const reduceOS = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const DEF = { head: "article", newtab: "1", tube: !reduceOS, calm: reduceOS, size: "m", clock: "24", start: "live", lang: "en" };
+  const DEF = { v: 2, head: "story", newtab: "1", tube: !reduceOS, calm: reduceOS, size: "m", clock: "24", start: "live", lang: "en" };
   let cfg;
   try { cfg = { ...DEF, ...JSON.parse(store.get("werld.settings") || "{}") }; } catch { cfg = { ...DEF }; }
   if (!store.get("werld.settings") && store.get("werld.tube") === "0") cfg.tube = false;
+  if (cfg.v !== 2) { cfg.v = 2; cfg.head = "story"; }   // boxes now open the story page by default
   let follows;
   try { follows = { threads: [], desks: [], places: [], ...JSON.parse(store.get("werld.follows") || "{}") }; } catch { follows = { threads: [], desks: [], places: [] }; }
   const isF = (k, v) => (follows[k] || []).includes(v);
@@ -32,12 +33,15 @@
   const leadSrc = (s) => s.sources.find((x) => x.name === s.lead) || s.sources[0];
   // A headline is a link to the real article (or, by choice, the WERLD/ story page).
   function headHref(s) { return cfg.head === "story" ? { href: S(s.id), out: false } : { href: safeUrl(leadSrc(s).url), out: true }; }
+  // The headline is the box's link: it stretches over the whole box (story page by default).
   function headLink(s, cls = "") {
     const h = headHref(s);
     return h.out
-      ? `<a class="${cls} out" href="${esc(h.href)}"${tgt()}>${esc(s.title)}<span class="ext" aria-hidden="true">↗</span><span class="sr"> (${esc(leadSrc(s).name)}, opens the article)</span></a>`
-      : `<a class="${cls}" href="${h.href}">${esc(s.title)}</a>`;
+      ? `<a class="cardlink ${cls} out" href="${esc(h.href)}"${tgt()}>${esc(s.title)}<span class="ext" aria-hidden="true">↗</span><span class="sr"> (${esc(leadSrc(s).name)}, opens the article)</span></a>`
+      : `<a class="cardlink ${cls}" href="${h.href}">${esc(s.title)}</a>`;
   }
+  // An outlet's name always opens that outlet's article.
+  const srcLink = (x) => `<a class="srcname" href="${esc(safeUrl(x.url))}"${tgt()} title="Read it on ${esc(x.name)}">${esc(x.name)}<span aria-hidden="true">↗</span></a>`;
   const storyBtn = (s) => `<a class="storybtn" href="${S(s.id)}" title="Every outlet and the full timeline">STORY ${esc(s.id)} →</a>`;
   const starBtn = (k, v, label) => `<button type="button" class="star" data-f="${k}" data-v="${esc(v)}" aria-pressed="${isF(k, v)}" title="${isF(k, v) ? "Unfollow" : "Follow"} ${esc(label)}">${isF(k, v) ? "★ FOLLOWING" : "☆ FOLLOW"}</button>`;
 
@@ -233,9 +237,9 @@
     const d = deskOf(s.desk), n = s.sources.length;
     const fresh = lastVisit && new Date(s.first) > lastVisit;
     const lead = leadSrc(s), others = s.sources.filter((x) => x !== lead);
-    const names = `via <b>${esc(lead.name)}</b>` + (others.length ? ` · ${others.slice(0, 2).map((x) => esc(x.name)).join(" · ")}${others.length > 2 ? ` +${others.length - 2}` : ""}` : "");
+    const names = `via ${srcLink(lead)}` + (others.length ? ` · ${others.slice(0, 2).map(srcLink).join(" · ")}${others.length > 2 ? ` +${others.length - 2}` : ""}` : "");
     const pl = s.places.slice(0, 3).map(esc).join(", ");
-    return `<article class="story${fresh ? " fresh" : ""}${s.severity === 2 ? " sev2" : ""}" data-id="${esc(s.id)}">
+    return `<article class="story card${fresh ? " fresh" : ""}${s.severity === 2 ? " sev2" : ""}" data-id="${esc(s.id)}">
       <div class="t">${when(s.last)}</div>
       <span class="dk" style="--c:${cvar(s.desk)}">${esc(d.code)}</span>
       <h4 dir="auto">${headLink(s)}${chipHtml(s)}</h4>
@@ -290,7 +294,7 @@
   function renderTop() {
     $("#top5").innerHTML = feed.brief.slice(0, 5).map((id, i) => {
       const s = byId.get(id); if (!s) return "";
-      return `<li><b>${i + 1}</b><div>${headLink(s)}<small><a class="mini-s" href="${S(s.id)}">${esc(s.id)} →</a> · ${esc(deskOf(s.desk).name.toUpperCase())} · ${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""} · ${esc(ago(s.last))}</small></div></li>`;
+      return `<li class="card"><b>${i + 1}</b><div>${headLink(s)}<small>${srcLink(leadSrc(s))} · ${esc(deskOf(s.desk).name.toUpperCase())} · ${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""} · ${esc(ago(s.last))}</small></div></li>`;
     }).join("");
   }
 
@@ -300,11 +304,11 @@
     $("#brief").innerHTML = feed.brief.map((id, i) => {
       const s = byId.get(id); if (!s) return "";
       const n = s.sources.length;
-      return `<article class="bc${i === 0 ? " lead" : ""}" style="--c:${cvar(s.desk)}">
+      return `<article class="bc card${i === 0 ? " lead" : ""}" style="--c:${cvar(s.desk)}">
         <div class="no">${String(i + 1).padStart(2, "0")}</div>
         <div class="k">${esc(deskOf(s.desk).name.toUpperCase())}${s.places.length ? " · " + esc(s.places.slice(0, 2).join(" / ").toUpperCase()) : ""}</div>
         <h3>${headLink(s)}</h3>
-        <div class="meta"><span class="src">${s.sources.slice(0, 4).map((x) => esc(x.name)).join(" · ")}</span><span class="n">${n} outlet${n > 1 ? "s" : ""}</span><span>${esc(ago(s.last))}</span>${storyBtn(s)}</div>
+        <div class="meta"><span class="src">${s.sources.slice(0, 4).map(srcLink).join(" · ")}</span><span class="n">${n} outlet${n > 1 ? "s" : ""}</span><span>${esc(ago(s.last))}</span>${storyBtn(s)}</div>
       </article>`;
     }).join("");
     $("#h-brief").textContent = `THE BRIEF · ${fmtDay.format(d).toUpperCase()}`;
@@ -343,7 +347,7 @@
     $("#desks").innerHTML = feed.desks.filter((d) => d.count).map((d) => {
       const items = feed.stories.filter((s) => s.desk === d.id).slice(0, 8);
       return `<section class="desk" style="--c:${cvar(d.id)}"><header><b>${esc(d.name.toUpperCase())}</b><small>${d.count} STORIES</small>${starBtn("desks", d.id, d.name)}</header>
-        ${items.map((s) => `<div class="item">${headLink(s)}<small>${when(s.last)} · ${s.sources.slice(0, 2).map((x) => esc(x.name)).join(" · ")}${s.sources.length > 2 ? ` +${s.sources.length - 2}` : ""} · <a class="mini-s" href="${S(s.id)}">${esc(s.id)} →</a></small></div>`).join("")}</section>`;
+        ${items.map((s) => `<div class="item card">${headLink(s)}<small>${when(s.last)} · ${s.sources.slice(0, 2).map(srcLink).join(" · ")}${s.sources.length > 2 ? ` +${s.sources.length - 2}` : ""}</small></div>`).join("")}</section>`;
     }).join("");
   }
 

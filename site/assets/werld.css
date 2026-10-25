@@ -518,3 +518,23 @@ html[data-size="xl"] body{zoom:1.25}
   nav.ch::-webkit-scrollbar{display:none}
   nav.ch a{flex:0 0 auto;min-width:64px}
 }
+
+/* ===== whole box opens the story; outlet names open articles ===== */
+.card{position:relative}
+.card .cardlink::after{content:"";position:absolute;inset:0;z-index:1}
+.card a:not(.cardlink),.card button,.card .chips{position:relative;z-index:2}
+.card{cursor:pointer;transition:background .15s,box-shadow .15s}
+.story.card:hover,.desk .item.card:hover,.top5 li.card:hover{background:linear-gradient(90deg,rgba(0,212,255,.07),transparent 80%)}
+.bc.card:hover{background:var(--glass2);box-shadow:inset 0 0 0 1px var(--c)}
+.card .cardlink:focus-visible{outline:none!important}
+.card:has(.cardlink:focus-visible){outline:2px solid var(--phos);outline-offset:2px}
+.story.card .cardlink,.bc.card .cardlink,.top5 .cardlink,.desk .item .cardlink{background-image:none}
+.story.card:hover .cardlink,.bc.card:hover .cardlink,.top5 li.card:hover .cardlink,.desk .item.card:hover .cardlink{color:#fff}
+a.srcname{color:var(--text);font-weight:500;border-bottom:1px dotted var(--rule2);white-space:nowrap}
+a.srcname span{font-size:.75em;margin-left:2px;color:var(--phos);opacity:0;transition:opacity .15s}
+a.srcname:hover{color:var(--phos);border-bottom-color:var(--phos)}
+a.srcname:hover span{opacity:1}
+.story-h a.out{color:#fff;text-decoration:none}
+.story-h a.out .ext{font-size:.5em;vertical-align:.5em}
+.story-h a.out:hover{color:var(--phos)}
+.credit a.srcname{font-weight:500}
