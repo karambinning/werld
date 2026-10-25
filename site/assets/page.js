@@ -67,6 +67,7 @@
 
   const chips = (s) => `
     <span class="chip ${s.status === "multi" ? "ok" : "warn"}">${s.status === "multi" ? "MULTI-SOURCE" : "SINGLE SOURCE"}</span>
+    ${s.vetted === false ? `<span class="chip unv" title="WERLD/ hasn't reviewed this outlet yet">UNVERIFIED OUTLET</span>` : ""}
     ${developing(s) ? `<span class="chip live">DEVELOPING</span>` : ""}`;
 
   // ---------- video embeds ----------
@@ -129,7 +130,7 @@
       <div class="story-grid">
         <section>
           <div class="sect">TIMELINE <small>${s.timeline.length} REPORTS · NEWEST FIRST · ${esc(tzShort)}</small></div>
-          <ol class="tl">${s.timeline.map((r, i) => `<li${i >= s.timeline.length - 1 ? ' class="origin"' : ""}><time>${esc(when(r.ts))}</time><div><b><a class="srcname" href="${esc(safe(r.url))}"${tgt()}>${esc(r.src)}<span aria-hidden="true">↗</span></a>${(s.sources.find((x) => x.name === r.src) || {}).kind === "state" ? ` <span class="chip warn">STATE MEDIA</span>` : ""}</b><a class="srcbtn-t" href="${esc(safe(r.url))}"${tgt()} dir="auto">${esc(r.title)} <span aria-hidden="true">↗</span></a>${i === s.timeline.length - 1 ? `<small>FIRST REPORT</small>` : ""}</div></li>`).join("")}</ol>
+          <ol class="tl">${s.timeline.map((r, i) => `<li${i >= s.timeline.length - 1 ? ' class="origin"' : ""}><time>${esc(when(r.ts))}</time><div><b><a class="srcname" href="${esc(safe(r.url))}"${tgt()}>${esc(r.src)}<span aria-hidden="true">↗</span></a>${(s.sources.find((x) => x.name === r.src) || {}).kind === "state" ? ` <span class="chip warn">STATE MEDIA</span>` : ""}${(s.sources.find((x) => x.name === r.src) || {}).known === false ? ` <span class="chip unv">UNVERIFIED OUTLET</span>` : ""}</b><a class="srcbtn-t" href="${esc(safe(r.url))}"${tgt()} dir="auto">${esc(r.title)} <span aria-hidden="true">↗</span></a>${i === s.timeline.length - 1 ? `<small>FIRST REPORT</small>` : ""}</div></li>`).join("")}</ol>
           ${s.log?.length ? `<div class="sect">EDITORIAL LOG <small>WHAT WERLD/ CHANGED ON THIS STORY</small></div><ol class="slog">${s.log.map((l) => `<li><time>${esc(when(l.ts))}</time><b>${esc({ split: "Report moved out", "split-from": "Split from another story", "editor-approved": "Released by an editor", "editor-rejected": "Withdrawn by an editor", correction: "Corrected" }[l.event] || l.event)}</b><span>${esc(l.detail)}</span></li>`).join("")}</ol>` : ""}
           ${s.threads?.length ? `<div class="sect">PART OF</div><div class="row-btns">${s.threads.map((t) => `<a class="btn quiet" href="${ROOT}t/${esc(t)}/">[ THREAD: ${esc(t.replace(/-/g, " ").toUpperCase())} ]</a>`).join(" ")}</div>` : ""}
           ${s.related?.length ? `<div class="sect">ALSO IN ${esc((s.places[0] || "").toUpperCase())}</div>${s.related.map((r) => `<a class="item rel" href="${S(r.id)}"><span class="dk" style="--c:${cvar(r.desk)}">${esc(DESK[r.desk]?.[1] || "")}</span>${esc(r.title)}<small>${esc(ago(r.last))}</small></a>`).join("")}` : ""}

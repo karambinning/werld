@@ -568,3 +568,5 @@ a.srcname:hover span{opacity:1}
   .bc,.bc.lead{grid-template-columns:52px minmax(0,1fr)}
   .bc .meta .src{white-space:normal}
 }
+.chip.unv{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 55%,transparent)}
+a.srcname.unk{color:var(--dim);border-bottom-style:dashed}

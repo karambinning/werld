@@ -11,7 +11,7 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const S = (code) => `s/${code}/`;
   const devel = (s) => Date.now() - new Date(s.last) < 3 * 3600e3 && Date.now() - new Date(s.first) < 24 * 3600e3 && s.sources.length > 1;
-  const chipHtml = (s) => `<span class="chips"><span class="chip ${s.status === "multi" ? "ok" : "warn"}">${s.status === "multi" ? "MULTI-SOURCE" : "SINGLE"}</span>${devel(s) ? `<span class="chip live">DEVELOPING</span>` : ""}</span>`;
+  const chipHtml = (s) => `<span class="chips"><span class="chip ${s.status === "multi" ? "ok" : "warn"}">${s.status === "multi" ? "MULTI-SOURCE" : "SINGLE"}</span>${s.vetted === false ? `<span class="chip unv" title="WERLD/ hasn't reviewed this outlet yet">UNVERIFIED OUTLET</span>` : ""}${devel(s) ? `<span class="chip live">DEVELOPING</span>` : ""}</span>`;
   const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "#");
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -41,7 +41,7 @@
       : `<a class="cardlink ${cls}" href="${h.href}">${esc(s.title)}</a>`;
   }
   // An outlet's name always opens that outlet's article.
-  const srcLink = (x) => `<a class="srcname" href="${esc(safeUrl(x.url))}"${tgt()} title="Read it on ${esc(x.name)}">${esc(x.name)}<span aria-hidden="true">↗</span></a>`;
+  const srcLink = (x) => `<a class="srcname${x.known === false ? " unk" : ""}" href="${esc(safeUrl(x.url))}"${tgt()} title="${x.known === false ? "Unverified outlet · " : ""}Read it on ${esc(x.name)}">${esc(x.name)}<span aria-hidden="true">↗</span></a>`;
   // Karam's rule: the BOX opens the WERLD/ story page; the TITLE itself opens the article.
   // An invisible link stretched over the whole box; the title and outlet links sit above it.
   const storyBtn = (s) => `<a class="boxlink" href="${S(s.id)}"><span class="sr">Story page: every outlet and the timeline for “${esc(s.title)}”</span></a>`;
@@ -211,7 +211,7 @@
 
   // ---------- ticker ----------
   function renderTicker() {
-    const items = feed.brief.map((i) => byId.get(i)).concat(feed.stories.filter((s) => s.status === "multi" && !(s.sensitive || []).length).slice(0, 14))
+    const items = feed.brief.map((i) => byId.get(i)).concat(feed.stories.filter((s) => s.status === "multi" && s.vetted !== false && !(s.sensitive || []).length).slice(0, 14))
       .filter((s, i, a) => s && a.indexOf(s) === i).slice(0, 20);
     const html = items.map((s) => { const h = headHref(s); return `<a href="${esc(h.href)}"${h.out ? tgt() : ""}><b style="color:${cvar(s.desk)}">${esc(deskOf(s.desk).code)}</b>${esc(s.title)}${h.out ? " ↗" : ""}</a>`; }).join("");
     const t = $("#track"); t.innerHTML = html + `<span aria-hidden="true" style="display:contents">${html.replace(/<a /g, '<a tabindex="-1" ')}</span>`;
