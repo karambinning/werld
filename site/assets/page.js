@@ -5,7 +5,9 @@
   const WORLD = "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json";
   const DESK = {
     world: ["World", "WLD", "--d-world"], conflict: ["Conflict", "CNF", "--d-conflict"], defence: ["Defence", "DEF", "--d-defence"],
-    cyber: ["Cyber", "CYB", "--d-cyber"], ai: ["AI & Tech", "AI", "--d-ai"], markets: ["Markets", "MKT", "--d-markets"], hazards: ["Hazards", "HAZ", "--d-hazards"],
+    cyber: ["Cyber", "CYB", "--d-cyber"], ai: ["Tech & AI", "TEC", "--d-ai"], markets: ["Business", "BIZ", "--d-markets"], hazards: ["Hazards", "HAZ", "--d-hazards"],
+    politics: ["Politics", "POL", "--d-politics"], science: ["Science & Health", "SCI", "--d-science"], climate: ["Climate", "CLM", "--d-climate"],
+    society: ["Society", "SOC", "--d-society"], culture: ["Culture", "CUL", "--d-culture"], sport: ["Sport", "SPT", "--d-sport"],
   };
   const $ = (s, el = document) => el.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -128,6 +130,7 @@
         <section>
           <div class="sect">TIMELINE <small>${s.timeline.length} REPORTS · NEWEST FIRST · ${esc(tzShort)}</small></div>
           <ol class="tl">${s.timeline.map((r, i) => `<li${i >= s.timeline.length - 1 ? ' class="origin"' : ""}><time>${esc(when(r.ts))}</time><div><b><a class="srcname" href="${esc(safe(r.url))}"${tgt()}>${esc(r.src)}<span aria-hidden="true">↗</span></a>${(s.sources.find((x) => x.name === r.src) || {}).kind === "state" ? ` <span class="chip warn">STATE MEDIA</span>` : ""}</b><a class="srcbtn-t" href="${esc(safe(r.url))}"${tgt()} dir="auto">${esc(r.title)} <span aria-hidden="true">↗</span></a>${i === s.timeline.length - 1 ? `<small>FIRST REPORT</small>` : ""}</div></li>`).join("")}</ol>
+          ${s.log?.length ? `<div class="sect">EDITORIAL LOG <small>WHAT WERLD/ CHANGED ON THIS STORY</small></div><ol class="slog">${s.log.map((l) => `<li><time>${esc(when(l.ts))}</time><b>${esc({ split: "Report moved out", "split-from": "Split from another story", "editor-approved": "Released by an editor", "editor-rejected": "Withdrawn by an editor", correction: "Corrected" }[l.event] || l.event)}</b><span>${esc(l.detail)}</span></li>`).join("")}</ol>` : ""}
           ${s.threads?.length ? `<div class="sect">PART OF</div><div class="row-btns">${s.threads.map((t) => `<a class="btn quiet" href="${ROOT}t/${esc(t)}/">[ THREAD: ${esc(t.replace(/-/g, " ").toUpperCase())} ]</a>`).join(" ")}</div>` : ""}
           ${s.related?.length ? `<div class="sect">ALSO IN ${esc((s.places[0] || "").toUpperCase())}</div>${s.related.map((r) => `<a class="item rel" href="${S(r.id)}"><span class="dk" style="--c:${cvar(r.desk)}">${esc(DESK[r.desk]?.[1] || "")}</span>${esc(r.title)}<small>${esc(ago(r.last))}</small></a>`).join("")}` : ""}
         </section>

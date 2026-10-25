@@ -4,7 +4,7 @@
   const FEED = "data/feed.json";
   const POLL_MS = 60_000;
   const WORLD = "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json";
-  const DESK_VAR = { world: "--d-world", conflict: "--d-conflict", defence: "--d-defence", cyber: "--d-cyber", ai: "--d-ai", markets: "--d-markets", hazards: "--d-hazards" };
+  const DESK_VAR = { world: "--d-world", politics: "--d-politics", conflict: "--d-conflict", defence: "--d-defence", cyber: "--d-cyber", ai: "--d-ai", markets: "--d-markets", science: "--d-science", climate: "--d-climate", hazards: "--d-hazards", society: "--d-society", culture: "--d-culture", sport: "--d-sport" };
   const REGIONS = ["Europe", "Middle East", "Africa", "Asia", "Americas", "Oceania"];
 
   const $ = (s, el = document) => el.querySelector(s);
