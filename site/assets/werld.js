@@ -382,8 +382,16 @@
 
   // ---------- MAP ----------
   let mapReady = false, land = null, mapSel = null;
+  // Map code loads only when a map is actually shown (map channel, or the desktop sidebar).
+  let scriptsP;
+  function loadScripts() {
+    return scriptsP ||= Promise.all([["https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js", "sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i"],
+      ["https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js", "sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67"]]
+      .map(([src, sri]) => new Promise((ok, no) => { const el = document.createElement("script"); el.src = src; el.integrity = sri; el.crossOrigin = "anonymous"; el.onload = ok; el.onerror = no; document.head.append(el); })));
+  }
   async function ensureWorld() {
     if (land) return land;
+    try { await loadScripts(); } catch { return null; }
     if (!window.d3 || !window.topojson) return null;
     try {
       const w = await (await fetch(WORLD)).json();
@@ -533,7 +541,11 @@
 
   // ---------- boot ----------
   go(location.hash.slice(1) || cfg.start || "live", true);
-  load(true).then(() => ensureWorld().then(() => { if (land) { drawMini(); if (current === "map") drawMap(); } }));
+  const wideRail = matchMedia("(min-width: 1241px)");
+  load(true).then(() => {
+    if (current === "map") drawMap();
+    else if (wideRail.matches) (window.requestIdleCallback || setTimeout)(() => ensureWorld().then(() => land && drawMini()));
+  });
   setInterval(() => load(false), POLL_MS);
   setInterval(() => { if (feed) { renderTop(); } }, 60_000);
 })();
