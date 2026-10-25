@@ -9,9 +9,16 @@
 <meta property="og:title" content="WERLD/ live intelligence engine from binning.ai">
 <meta property="og:description" content="What is happening in the world right now, linked to the outlets reporting it. Built by Binning.AI.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2304080f'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%2300d4ff' stroke-width='2'/%3E%3Cpath d='M7 16h18M16 7c-4 5-4 13 0 18M16 7c4 5 4 13 0 18' stroke='%2300d4ff' stroke-width='1.4' fill='none'/%3E%3C/svg%3E">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<link rel="canonical" href="https://karambinning.github.io/werld/">
+<meta property="og:url" content="https://karambinning.github.io/werld/">
+<meta property="og:image" content="https://karambinning.github.io/werld/assets/og.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="assets/werld.css">
 </head>
 <body>
+<a class="skip" href="#stage">Skip to stories</a>
 <canvas id="static" aria-hidden="true"></canvas>
 <div class="scan" aria-hidden="true"></div>
 <div class="roll" aria-hidden="true"></div>
@@ -39,6 +46,7 @@
   <div class="ticker" aria-label="Headlines">
     <div class="lbl">WIRE</div>
     <div class="rail"><div class="track" id="track"></div></div>
+    <button class="tickpause" id="tickpause" type="button" aria-label="Pause the headline ticker">❚❚</button>
   </div>
 </header>
 
@@ -56,7 +64,7 @@
         <div class="search"><span>&gt;</span><input id="q" type="search" placeholder="search the wire" autocomplete="off" aria-label="Search stories"></div>
         <div><h3>DESKS</h3><div class="facet" id="f-desk"></div></div>
         <div><h3>REGIONS</h3><div class="facet" id="f-region"></div></div>
-        <button class="toggle" id="f-multi" type="button" aria-pressed="false"><i></i>Confirmed: 2+ independent origins</button>
+        <button class="toggle" id="f-multi" type="button" aria-pressed="false"><i></i>Multi-source only (2+ independent origins)</button>
       </aside>
       <div>
         <div class="since" id="since" hidden></div>
@@ -75,7 +83,7 @@
     <div class="brief-head">
       <div>
         <div class="ch-id">● CH 02 BRIEF <span class="tc" id="tc-brief"></span></div>
-        <h2 class="big" id="h-brief">THE BRIEF</h2>
+        <h1 class="big" id="h-brief">THE BRIEF</h1>
         <p class="lede">The eight stories that matter most in the last 24 hours, one per place. Ranked by how many separate outlets are reporting them, how serious they are, and how recent. <b>No model writes these lines</b>: every headline is the reporting outlet's own.</p>
       </div>
       <div class="row-btns"><a class="btn" id="edlink" href="b/">[ BRIEF ARCHIVE ]</a><button class="btn quiet" id="copybrief" type="button">[ COPY AS TEXT ]</button></div>
@@ -86,7 +94,7 @@
   <!-- CH 03 THREADS -->
   <section class="scene" id="ch-threads" aria-labelledby="h-threads">
     <div class="ch-id">● CH 03 THREADS <span class="tc" id="tc-threads"></span></div>
-    <h2 class="big" id="h-threads">THE THREADS</h2>
+    <h1 class="big" id="h-threads">THE THREADS</h1>
     <p class="lede">The long-running stories WERLD/ follows: wars, crises and fault lines. Each thread collects every story about it into one timeline, so you can see how it has moved day by day.</p>
     <div class="tgrid" id="threads"></div>
   </section>
@@ -94,7 +102,7 @@
   <!-- CH 04 MAP -->
   <section class="scene" id="ch-map" aria-labelledby="h-map">
     <div class="ch-id">● CH 04 MAP <span class="tc" id="tc-map"></span></div>
-    <h2 class="big" id="h-map">WHERE IT'S HAPPENING</h2>
+    <h1 class="big" id="h-map">WHERE IT'S HAPPENING</h1>
     <p class="lede">Every story that names a place is pinned to it. Bigger pins mean more stories; pulsing pins carry a severe event. Pick a pin to read what is happening there.</p>
     <div class="map-wrap">
       <div>
@@ -108,7 +116,7 @@
   <!-- CH 04 DESKS -->
   <section class="scene" id="ch-desks" aria-labelledby="h-desks">
     <div class="ch-id">● CH 05 DESKS <span class="tc" id="tc-desks"></span></div>
-    <h2 class="big" id="h-desks">BY DESK</h2>
+    <h1 class="big" id="h-desks">BY DESK</h1>
     <p class="lede">The latest from each desk, side by side.</p>
     <div class="desks" id="desks"></div>
   </section>
@@ -116,7 +124,7 @@
   <!-- CH 05 METHOD -->
   <section class="scene" id="ch-method" aria-labelledby="h-method">
     <div class="ch-id">● CH 06 METHOD</div>
-    <h2 class="big" id="h-method">HOW WERLD WORKS</h2>
+    <h1 class="big" id="h-method">HOW WERLD WORKS</h1>
     <div class="method">
       <div>
         <div class="termwin">
@@ -128,11 +136,13 @@
       <ol class="rules">
         <li><b>01</b><div><strong>The outlet's words, not ours.</strong>Headlines are shown as each outlet published them. No model rewrites or summarises them on this page.</div></li>
         <li><b>02</b><div><strong>Every story has a source you can check.</strong>Each line links to the original reporting, with every outlet that carried it.</div></li>
-        <li><b>03</b><div><strong>Counting origins, not copies.</strong>When several outlets report the same event, WERLD/ merges them into one story. Outlets running near-identical wording (usually one wire report, syndicated) count as one origin. A story is CONFIRMED only with two or more independent origins; otherwise it is marked SINGLE SOURCE.</div></li>
+        <li><b>03</b><div><strong>Counting origins, not copies.</strong>When several outlets report the same event, WERLD/ merges them into one story. Outlets running near-identical wording (usually one wire report, syndicated) count as one origin. A story is marked MULTI-SOURCE when two or more independent origins report it, otherwise SINGLE SOURCE. Neither label means WERLD/ has verified the facts: it tells you how many separate outlets are reporting them.</div></li>
         <li><b>04</b><div><strong>Your clock, not ours.</strong>Times are shown in your own time zone. "NEW" marks stories that arrived since your last visit.</div></li>
         <li><b>05</b><div><strong>If the engine stops, the page says so.</strong>The status light turns amber and shows when the feed last updated, instead of pretending it's live.</div></li>
-        <li><b>06</b><div><strong>A draft, and corrections are welcome.</strong>WERLD is in development. Place tags and desk labels are assigned automatically and can be wrong. Spot one? <a href="https://github.com/karambinning/werld/issues/new?title=Correction:%20" target="_blank" rel="noopener" style="color:var(--phos)">Report it</a>.</div></li>
-        <li><b>07</b><div><strong>No tracking.</strong>No cookies, no analytics, no third-party fonts. The map outline loads from jsDelivr.</div></li>
+        <li><b>06</b><div><strong>A draft, and corrections are welcome.</strong>WERLD is in development. Place tags and desk labels are assigned automatically and can be wrong. Spot one? <a href="mailto:binning.ai.incorporated@gmail.com?subject=WERLD/%20correction" style="color:var(--phos)">Email us</a>, and see our <a href="standards/" style="color:var(--phos)">editorial standards</a>.</div></li>
+        <li><b>07</b><div><strong>English-language reporting, for now.</strong>We only publish what we can read and check. Reporting in other languages is filtered out until we can translate it properly.</div></li>
+        <li><b>08</b><div><strong>Sensitive stories are handled with care.</strong>Stories involving sexual offences, suicide, harm to children or live UK legal proceedings are held back and only appear after a human editor has checked them. Even then they are never featured in the Brief, the ticker or a video. Sanctioned state outlets (RT, Sputnik, RIA) are not used, and other state-funded outlets are labelled. Sport and entertainment are outside our beat.</div></li>
+        <li><b>09</b><div><strong>No tracking.</strong>No cookies, no analytics, no third-party fonts. The map outline loads from jsDelivr.</div></li>
       </ol>
     </div>
   </section>
@@ -143,13 +153,17 @@
   <span class="term" id="term">&gt; werld --live</span>
   <a href="v/">Videos</a>
   <a href="b/">Briefs</a>
-  <a href="https://github.com/karambinning/werld/issues/new?title=Correction:%20" target="_blank" rel="noopener">Report a correction</a>
+  <a href="about/">About</a>
+  <a href="standards/">Standards</a>
+  <a href="corrections/">Corrections</a>
+  <a href="privacy/">Privacy</a>
+  <a href="mailto:binning.ai.incorporated@gmail.com?subject=WERLD/%20correction">Report an error</a>
   <a href="https://karambinning.github.io/portfolio/" target="_blank" rel="noopener">Binning.AI</a>
   <button class="tubebtn" id="tube" type="button">TUBE: ON</button>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
-<script src="assets/werld.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous" defer></script>
+<script src="assets/werld.js" defer></script>
 </body>
 </html>

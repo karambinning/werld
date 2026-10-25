@@ -11,7 +11,7 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const S = (code) => `s/${code}/`;
   const devel = (s) => Date.now() - new Date(s.last) < 3 * 3600e3 && Date.now() - new Date(s.first) < 24 * 3600e3 && s.sources.length > 1;
-  const chipHtml = (s) => `<span class="chips"><span class="chip ${s.status === "confirmed" ? "ok" : "warn"}">${s.status === "confirmed" ? "CONFIRMED" : "SINGLE"}</span>${devel(s) ? `<span class="chip live">DEVELOPING</span>` : ""}</span>`;
+  const chipHtml = (s) => `<span class="chips"><span class="chip ${s.status === "multi" ? "ok" : "warn"}">${s.status === "multi" ? "MULTI-SOURCE" : "SINGLE"}</span>${devel(s) ? `<span class="chip live">DEVELOPING</span>` : ""}</span>`;
   const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "#");
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -67,6 +67,9 @@
   }
   setTube(store.get("werld.tube") !== "0" && !reduce);
   $("#tube").onclick = () => setTube(document.documentElement.classList.contains("notube"));
+  document.addEventListener("visibilitychange", () => { if (document.hidden) clearInterval(noiseT); else if (!document.documentElement.classList.contains("notube")) { clearInterval(noiseT); noiseT = setInterval(noise, 90); } });
+  const tp = document.getElementById("tickpause");
+  if (tp) tp.onclick = () => { const p = document.querySelector(".ticker").classList.toggle("paused"); tp.textContent = p ? "▶" : "❚❚"; tp.setAttribute("aria-label", p ? "Play the headline ticker" : "Pause the headline ticker"); };
 
   // ---------- clock + timecode ----------
   const t0 = performance.now();
@@ -78,7 +81,7 @@
     const tc = [Math.floor(e / 3600), Math.floor(e / 60) % 60, e % 60, f].map((x) => String(x).padStart(2, "0")).join(":");
     document.querySelectorAll(".tc").forEach((el) => (el.textContent = tc));
   }
-  setInterval(tick, 40); tick();
+  setInterval(() => { if (!document.hidden) tick(); }, 250); tick();
 
   // ---------- channels ----------
   const CH = ["live", "brief", "threads", "map", "desks", "method"];
@@ -94,7 +97,7 @@
       if (!instant && !reduce) {
         next.classList.add("in"); setTimeout(() => next.classList.remove("in"), 600);
         const b = $(".beam"); b.classList.remove("go"); void b.offsetWidth; b.classList.add("go");
-        cv.style.opacity = ".32"; setTimeout(() => (cv.style.opacity = ""), 260);
+        cv.style.opacity = ".16"; setTimeout(() => (cv.style.opacity = ""), 200);
       }
       scrollTo({ top: 0 });
       if (ch === "map") drawMap();
@@ -123,7 +126,7 @@
   async function load(first) {
     let data;
     try {
-      const r = await fetch(`${FEED}?t=${Date.now()}`, { cache: "no-store" });
+      const r = await fetch(FEED, { cache: "no-cache" });   // revalidates with the server (ETag) instead of re-downloading
       if (!r.ok) throw new Error(r.status);
       data = await r.json();
     } catch (e) {
@@ -136,11 +139,16 @@
       if (fresh) { pendingNew += fresh; const p = $("#newpill"); p.textContent = `▲ ${pendingNew} NEW ${pendingNew === 1 ? "STORY" : "STORIES"}`; p.classList.add("show"); }
     }
     knownIds = ids;
+    if (feed && feed.generated === data.generated) { return; }   // nothing new: leave the page (and the reader's place) alone
+    const openIds = [...document.querySelectorAll(".story.open")].map((x) => x.dataset.id);
+    const focusId = document.activeElement?.closest?.(".story")?.dataset.id;
     feed = data; byId = new Map(data.stories.map((s) => [s.id, s]));
     const genAge = (Date.now() - new Date(data.generated)) / 60000;
     const ok = data.engine.ok && genAge < 45;
     setStatus(ok, ok ? "LIVE" : `STALE · ${ago(data.generated).toUpperCase()}`);
     renderAll();
+    openIds.forEach((id) => document.querySelectorAll(`.story[data-id="${CSS.escape(id)}"]`).forEach((x) => x.classList.add("open")));
+    if (focusId) document.querySelector(`.story[data-id="${CSS.escape(focusId)}"] h4 a`)?.focus({ preventScroll: true });
     if (first) termSay(`> werld --live  ·  ${data.stories.length} stories  ·  ${data.engine.pulled} reports scanned  ·  engine ${data.engine.ok ? "ok" : "down"}`);
   }
   function setStatus(ok, text) {
@@ -159,10 +167,10 @@
 
   // ---------- ticker ----------
   function renderTicker() {
-    const items = feed.brief.map((i) => byId.get(i)).concat(feed.stories.filter((s) => s.sources.length > 1).slice(0, 14))
+    const items = feed.brief.map((i) => byId.get(i)).concat(feed.stories.filter((s) => s.status === "multi" && !(s.sensitive || []).length).slice(0, 14))
       .filter((s, i, a) => s && a.indexOf(s) === i).slice(0, 20);
     const html = items.map((s) => `<a href="${S(s.id)}"><b style="color:${cvar(s.desk)}">${esc(deskOf(s.desk).code)}</b>${esc(s.title)}</a>`).join("");
-    const t = $("#track"); t.innerHTML = html + html;
+    const t = $("#track"); t.innerHTML = html + `<span aria-hidden="true" style="display:contents">${html.replace(/<a /g, '<a tabindex="-1" ')}</span>`;
     t.style.setProperty("--dur", `${Math.max(60, items.length * 9)}s`);
   }
 
@@ -188,10 +196,10 @@
     const fresh = lastVisit && new Date(s.first) > lastVisit;
     const names = s.sources.slice(0, 3).map((x) => esc(x.name)).join(" · ") + (n > 3 ? ` +${n - 3}` : "");
     const pl = s.places.slice(0, 3).map(esc).join(", ");
-    return `<article class="story${fresh ? " fresh" : ""}${s.severity === 2 ? " sev2" : ""}" data-id="${s.id}">
+    return `<article class="story${fresh ? " fresh" : ""}${s.severity === 2 ? " sev2" : ""}" data-id="${esc(s.id)}">
       <div class="t">${when(s.last)}</div>
       <span class="dk" style="--c:${cvar(s.desk)}">${esc(d.code)}</span>
-      <h4><a href="${S(s.id)}">${esc(s.title)}</a>${chipHtml(s)}</h4>
+      <h4 dir="auto"><a href="${S(s.id)}">${esc(s.title)}</a>${chipHtml(s)}</h4>
       ${s.summary && !opts.compact ? `<p class="sum">${esc(s.summary)}</p>` : ""}
       <div class="meta">
         <span class="src">${names}</span>
@@ -213,14 +221,14 @@
     return feed.stories.filter((s) =>
       (!filt.desk || s.desk === filt.desk) &&
       (!filt.region || s.region === filt.region) &&
-      (!filt.multi || s.status === "confirmed") &&
+      (!filt.multi || s.status === "multi") &&
       (!filt.q || (s.title + " " + s.places.join(" ") + " " + s.sources.map((x) => x.name + " " + x.title).join(" ")).toLowerCase().includes(filt.q)));
   }
   function renderStream() {
     const list = filtered();
-    const multi = feed.stories.filter((s) => s.status === "confirmed").length;
+    const multi = feed.stories.filter((s) => s.status === "multi").length;
     const outlets = new Set(feed.stories.flatMap((s) => s.sources.map((x) => x.name))).size;
-    $("#lede-live").innerHTML = `<b>${feed.stories.length}</b> stories from <b>${outlets}</b> outlets in the last ${feed.window_hours} hours, <b>${multi}</b> of them confirmed by two or more independent origins. Updated ${esc(ago(feed.generated))}. Times in <b>${esc(tzShort)}</b>.`;
+    $("#lede-live").innerHTML = `<b>${feed.stories.length}</b> stories from <b>${outlets}</b> outlets in the last ${feed.window_hours} hours, <b>${multi}</b> of them multi-source (reported by two or more independent origins). Updated ${esc(ago(feed.generated))}. Times in <b>${esc(tzShort)}</b>.`;
     if (lastVisit) {
       const n = feed.stories.filter((s) => new Date(s.first) > lastVisit).length;
       const el = $("#since"); el.hidden = false;
@@ -385,7 +393,7 @@
       tip.style.left = Math.min(ev.clientX - box.left + 12, box.width - 290) + "px";
       tip.style.top = (ev.clientY - box.top + 12) + "px";
     }).on("mouseleave", () => (tip.style.display = "none"))
-      .on("click keydown", (ev, d) => { if (ev.type === "keydown" && ev.key !== "Enter") return; selectPlace(d.place); });
+      .on("click keydown", (ev, d) => { if (ev.type === "keydown" && ev.key !== "Enter" && ev.key !== " ") return; ev.preventDefault?.(); selectPlace(d.place); });
     if (!mapSel && groups[0]) selectPlace(groups[0].place);
     else if (mapSel) selectPlace(mapSel, true);
   }

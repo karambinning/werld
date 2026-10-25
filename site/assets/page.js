@@ -33,16 +33,15 @@
   const CH = [["live", "LIVE"], ["brief", "BRIEF"], ["threads", "THREADS"], ["map", "MAP"], ["desks", "DESKS"], ["method", "METHOD"]];
   const here = { story: "live", thread: "threads", edition: "brief", editions: "brief", video: "videos", videos: "videos" }[KIND];
   B.insertAdjacentHTML("afterbegin", `
-    <canvas id="static" aria-hidden="true"></canvas><div class="scan" aria-hidden="true"></div><div class="roll" aria-hidden="true"></div><div class="beam go" aria-hidden="true"></div>
+    <canvas id="static" aria-hidden="true"></canvas><div class="scan" aria-hidden="true"></div><div class="roll" aria-hidden="true"></div><div class="beam${matchMedia("(prefers-reduced-motion: reduce)").matches ? "" : " go"}" aria-hidden="true"></div>
     <header class="top"><div class="bar">
       <a class="mark" href="${ROOT}" aria-label="WERLD/ home"><b>WERLD<i>/</i></b><small>LIVE INTELLIGENCE ENGINE<br>FROM <em>BINNING.AI</em></small></a>
       <nav class="ch" aria-label="Channels">${CH.map(([id, l], i) => `<a href="${ROOT}#${id}" ${here === id ? 'aria-current="page"' : ""}>CH ${String(i + 1).padStart(2, "0")}<span>${l}</span></a>`).join("")}</nav>
       <div class="readout"><div class="row"><i class="rec"></i><b class="st">WERLD/</b></div><div class="row"><span id="clock"></span><span>${esc(tzShort)}</span></div></div>
     </div></header>
-    <main id="page" class="page"><div class="empty">Tuning in…</div></main>
     <footer><span class="draft">DRAFT</span><span class="term" id="term">&gt; werld --open ${esc(KIND)} ${esc(KEY)}</span>
-      <a href="${ROOT}v/">Videos</a><a href="${ROOT}b/">Briefs</a>
-      <a href="https://github.com/karambinning/werld/issues/new?title=${encodeURIComponent(`Correction: ${KIND} ${KEY}`)}" target="_blank" rel="noopener">Report a correction</a>
+      <a href="${ROOT}about/">About</a><a href="${ROOT}standards/">Standards</a><a href="${ROOT}corrections/">Corrections</a><a href="${ROOT}privacy/">Privacy</a>
+      <a href="mailto:binning.ai.incorporated@gmail.com?subject=${encodeURIComponent(`WERLD/ correction: ${KIND} ${KEY}`)}">Report an error</a>
       <button class="tubebtn" id="tube" type="button">TUBE: ON</button></footer>`);
   const cv = $("#static"), cx = cv.getContext("2d");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -51,29 +50,35 @@
   function setTube(on) { document.documentElement.classList.toggle("notube", !on); $("#tube").textContent = `TUBE: ${on ? "ON" : "OFF"}`; store.set("werld.tube", on ? "1" : "0"); clearInterval(nt); if (on) nt = setInterval(noise, 90); }
   setTube(store.get("werld.tube") !== "0" && !reduce);
   $("#tube").onclick = () => setTube(document.documentElement.classList.contains("notube"));
-  setInterval(() => ($("#clock").textContent = new Date().toLocaleTimeString(undefined, { hour12: false })), 500);
-  const main = $("#page");
+  setInterval(() => { if (!document.hidden) $("#clock").textContent = new Date().toLocaleTimeString(undefined, { hour12: false }); }, 1000);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) clearInterval(nt); else if (!document.documentElement.classList.contains("notube")) { clearInterval(nt); nt = setInterval(noise, 90); } });
+  let main = $("#page");
+  if (!main) { main = document.createElement("main"); main.id = "page"; main.className = "page"; document.body.append(main); }
+  // the header goes before <main>, the footer after it; static content stays until replaced
+  main.before($("header.top")); main.after($("footer"));
   const fail = (msg) => { main.innerHTML = `<div class="ch-id">● SIGNAL LOST</div><h1 class="big">NO SIGNAL</h1><p class="lede">${msg} <a href="${ROOT}" style="color:var(--phos)">Back to the live wire →</a></p>`; };
 
   const chips = (s) => `
-    <span class="chip ${s.status === "confirmed" ? "ok" : "warn"}">${s.status === "confirmed" ? "CONFIRMED" : "SINGLE SOURCE"}</span>
+    <span class="chip ${s.status === "multi" ? "ok" : "warn"}">${s.status === "multi" ? "MULTI-SOURCE" : "SINGLE SOURCE"}</span>
     ${developing(s) ? `<span class="chip live">DEVELOPING</span>` : ""}`;
 
   // ---------- video embeds ----------
   function embed(v) {
     const tt = (v.tiktok || "").match(/video\/(\d+)/), ig = (v.reels || "").match(/\/(?:reel|p)\/([\w-]+)/), yt = (v.youtube || "").match(/(?:shorts\/|v=|youtu\.be\/)([\w-]{6,})/);
     if (v.mp4) return `<video src="${esc(safe(v.mp4))}" ${v.poster ? `poster="${esc(safe(v.poster))}"` : ""} controls playsinline preload="metadata"></video>`;
-    if (tt) return `<iframe src="https://www.tiktok.com/player/v1/${tt[1]}?music_info=0&description=0" allow="fullscreen" title="WERLD/ video on TikTok"></iframe>`;
-    if (ig) return `<iframe src="https://www.instagram.com/reel/${ig[1]}/embed" allow="fullscreen" title="WERLD/ video on Instagram"></iframe>`;
-    if (yt) return `<iframe src="https://www.youtube-nocookie.com/embed/${yt[1]}" allow="fullscreen" title="WERLD/ video on YouTube"></iframe>`;
-    return `<div class="vid-empty">VIDEO #${v.n}</div>`;
+    // Third-party players set their own cookies, so they load only when the viewer asks.
+    const fac = (src, name) => `<button class="facade" type="button" data-src="${esc(src)}" data-name="${esc(name)}"><b>▶</b><span>PLAY VIDEO #${Number(v.n)}</span><small>Loads the ${esc(name)} player, which sets its own cookies.</small></button>`;
+    if (tt) return fac(`https://www.tiktok.com/player/v1/${tt[1]}?music_info=0&description=0&autoplay=1`, "TikTok");
+    if (ig) return fac(`https://www.instagram.com/reel/${ig[1]}/embed`, "Instagram");
+    if (yt) return fac(`https://www.youtube-nocookie.com/embed/${yt[1]}?autoplay=1`, "YouTube");
+    return `<div class="vid-empty">VIDEO #${Number(v.n)}</div>`;
   }
   const platLinks = (v) => [["TikTok", v.tiktok], ["Reels", v.reels], ["YouTube", v.youtube]].filter((x) => x[1]).map(([l, u]) => `<a class="btn quiet" href="${esc(safe(u))}" target="_blank" rel="noopener">[ ${l} ]</a>`).join(" ");
   function videoBlock(v, sinceHtml) {
     return `<section class="vidbox">
       <div class="vid">${embed(v)}</div>
       <div class="vid-side">
-        <div class="ch-id">▶ WERLD/ VIDEO #${v.n}</div>
+        <div class="ch-id">▶ WERLD/ VIDEO #${Number(v.n)}</div>
         <h2 class="mid">${esc(v.title || "")}</h2>
         <p class="lede">Posted ${v.published ? esc(when(v.published)) : ""}. Below are the sources this video is based on${sinceHtml ? ", and what has happened since" : ""}.</p>
         ${sinceHtml || ""}
@@ -102,7 +107,8 @@
         <span class="bug">WERLD/ STORY</span><b class="code" title="Story code">${esc(code)}</b>
         <span class="dk">${esc(DESK[s.desk]?.[1] || "")}</span>${chips(s)}
       </div>
-      <h1 class="story-h">${esc(s.title)}</h1>
+      ${s.sensitive?.length ? `<div class="sensnote"><b>SENSITIVE</b> ${esc(s.sensitive.map((k) => ({ "sexual-offences": "sexual offences", suicide: "suicide", children: "harm to children", "uk-legal": "UK legal proceedings" }[k] || k)).join(" · "))}. WERLD/ lists this story but never features it in the Brief, the ticker or a video.${s.sensitive.includes("suicide") ? ` If you're affected, Samaritans are available free on <b>116 123</b> (UK &amp; ROI).` : ""}</div>` : ""}
+      <h1 class="story-h" dir="auto">${esc(s.title)}</h1>
       <p class="credit">Headline as published by <b>${esc(s.lead)}</b>. WERLD/ does not rewrite headlines.</p>
       <div class="facts">
         <div><small>FIRST SEEN</small><b>${esc(when(s.first))}</b></div>
@@ -115,7 +121,7 @@
       <div class="story-grid">
         <section>
           <div class="sect">TIMELINE <small>${s.timeline.length} REPORTS · NEWEST FIRST · ${esc(tzShort)}</small></div>
-          <ol class="tl">${s.timeline.map((r, i) => `<li${i >= s.timeline.length - 1 ? ' class="origin"' : ""}><time>${esc(when(r.ts))}</time><div><b>${esc(r.src)}</b><a href="${esc(safe(r.url))}" target="_blank" rel="noopener">${esc(r.title)} ↗</a>${i === s.timeline.length - 1 ? `<small>FIRST REPORT</small>` : ""}</div></li>`).join("")}</ol>
+          <ol class="tl">${s.timeline.map((r, i) => `<li${i >= s.timeline.length - 1 ? ' class="origin"' : ""}><time>${esc(when(r.ts))}</time><div><b>${esc(r.src)}${(s.sources.find((x) => x.name === r.src) || {}).kind === "state" ? ` <span class="chip warn">STATE MEDIA</span>` : ""}</b><a href="${esc(safe(r.url))}" target="_blank" rel="noopener">${esc(r.title)} ↗</a>${i === s.timeline.length - 1 ? `<small>FIRST REPORT</small>` : ""}</div></li>`).join("")}</ol>
           ${s.threads?.length ? `<div class="sect">PART OF</div><div class="row-btns">${s.threads.map((t) => `<a class="btn quiet" href="${ROOT}t/${esc(t)}/">[ THREAD: ${esc(t.replace(/-/g, " ").toUpperCase())} ]</a>`).join(" ")}</div>` : ""}
           ${s.related?.length ? `<div class="sect">ALSO IN ${esc((s.places[0] || "").toUpperCase())}</div>${s.related.map((r) => `<a class="item rel" href="${S(r.id)}"><span class="dk" style="--c:${cvar(r.desk)}">${esc(DESK[r.desk]?.[1] || "")}</span>${esc(r.title)}<small>${esc(ago(r.last))}</small></a>`).join("")}` : ""}
         </section>
@@ -128,7 +134,7 @@
           ${s.pin ? `<section class="panel"><header>WHERE <small>${esc(s.pin.place.toUpperCase())}</small></header><div class="mini" id="smap"></div></section>` : ""}
           <section class="panel"><header>SHARE</header><div class="share">
             <button class="btn" id="copy" type="button">[ COPY LINK ]</button>
-            <a class="btn quiet" href="https://github.com/karambinning/werld/issues/new?title=${encodeURIComponent(`Correction: story ${code}`)}&body=${encodeURIComponent(`Story: ${location.href}\n\nWhat's wrong:\n`)}" target="_blank" rel="noopener">[ REPORT AN ERROR ]</a>
+            <a class="btn quiet" href="mailto:binning.ai.incorporated@gmail.com?subject=${encodeURIComponent(`WERLD/ correction: story ${code}`)}&body=${encodeURIComponent(`Story: ${location.href}\n\nWhat's wrong:\n`)}">[ REPORT AN ERROR ]</a>
           </div></section>
         </aside>
       </div>`;
@@ -151,8 +157,8 @@
   }
   let scriptsP;
   function loadScripts() {
-    return scriptsP ||= Promise.all(["https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js", "https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"]
-      .map((src) => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = no; document.head.append(s); })));
+    return scriptsP ||= Promise.all([["https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js", "sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i"], ["https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js", "sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67"]]
+      .map(([src, sri]) => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.integrity = sri; s.crossOrigin = "anonymous"; s.onload = ok; s.onerror = no; document.head.append(s); })));
   }
 
   // ---------- thread ----------
@@ -166,7 +172,7 @@
       const d = fmtDay.format(new Date(s.last)).toUpperCase();
       if (d !== last) { html += `<div class="day">${esc(d)}</div>`; last = d; }
       html += `<a class="tstory${s.severity === 2 ? " sev2" : ""}" href="${S(s.id)}"><time>${esc(fmtHM.format(new Date(s.last)))}</time>
-        <div><span class="chip ${s.status === "confirmed" ? "ok" : "warn"}">${s.status === "confirmed" ? "CONFIRMED" : "SINGLE"}</span>
+        <div><span class="chip ${s.status === "multi" ? "ok" : "warn"}">${s.status === "multi" ? "MULTI-SOURCE" : "SINGLE"}</span>
         <h4>${esc(s.title)}</h4><small>${s.n} outlet${s.n > 1 ? "s" : ""} · ${esc(s.places.join(", "))} · ${esc(s.id)}</small></div></a>`;
     }
     main.innerHTML = `
@@ -208,7 +214,7 @@
     try { x = await getJSON("data/videos.json"); } catch { x = { videos: [] }; }
     main.innerHTML = `<div class="ch-id">● VIDEOS</div><h1 class="big">WERLD/ VIDEOS</h1>
       <p class="lede">Short intelligence briefs on TikTok and Instagram Reels. Every video has a number: this page has the sources behind each one, and what has changed since.</p>
-      ${x.videos.length ? `<div class="vgrid">${x.videos.map((v) => `<a class="vcard" href="${ROOT}v/${v.n}/"><b>#${v.n}</b><span>${esc(v.title || "")}</span><small>${v.published ? esc(when(v.published)) : ""}</small></a>`).join("")}</div>`
+      ${x.videos.length ? `<div class="vgrid">${x.videos.map((v) => `<a class="vcard" href="${ROOT}v/${v.n}/"><b>#${Number(v.n)}</b><span>${esc(v.title || "")}</span><small>${v.published ? esc(when(v.published)) : ""}</small></a>`).join("")}</div>`
         : `<div class="empty">The first WERLD/ videos are on their way.<br><a href="${ROOT}b/" style="color:var(--phos)">Read the latest brief →</a></div>`}`;
   }
   async function video(n) {
@@ -222,5 +228,9 @@
     main.innerHTML = videoBlock(v, "");
   }
 
-  ({ story: () => story(KEY), thread: () => thread(KEY), edition: () => edition(KEY), editions, video: () => video(KEY), videos }[KIND] || (() => fail("Unknown page.")))();
+  document.addEventListener("click", (e) => {
+    const f = e.target.closest(".facade"); if (!f) return;
+    f.outerHTML = `<iframe src="${esc(f.dataset.src)}" allow="autoplay; fullscreen" title="WERLD/ video on ${esc(f.dataset.name)}"></iframe>`;
+  });
+  ({ doc: () => {}, notfound: () => {}, story: () => story(KEY), thread: () => thread(KEY), edition: () => edition(KEY), editions, video: () => video(KEY), videos }[KIND] || (() => fail("Unknown page.")))();
 })();
